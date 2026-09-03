@@ -370,6 +370,8 @@ main_sources(COMMON_SRC
     io/esc_srxl2_bus.h
     io/esc_srxl2_control.c
     io/esc_srxl2_control.h
+    io/esc_textgen.c
+    io/esc_textgen.h
     io/servo_sbus.c
     io/servo_sbus.h
     io/frsky_osd.c

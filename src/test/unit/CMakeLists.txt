@@ -42,6 +42,8 @@ set_property(SOURCE esc_srxl2_control_unittest.cc PROPERTY depends
 
 set_property(SOURCE esc_srxl2_unittest.cc PROPERTY depends "common/crc.c" "common/streambuf.c" "io/esc_srxl2.c")
 
+set_property(SOURCE esc_textgen_unittest.cc PROPERTY depends "io/esc_textgen.c")
+
 set_property(SOURCE osd_unittest.cc PROPERTY depends "io/osd_utils.c" "io/displayport_msp_osd.c" "common/typeconversion.c")
 set_property(SOURCE osd_unittest.cc PROPERTY definitions OSD_UNIT_TEST USE_MSP_DISPLAYPORT DISABLE_MSP_BF_COMPAT)
 
