@@ -366,6 +366,8 @@ main_sources(COMMON_SRC
     io/beeper.h
     io/esc_srxl2.c
     io/esc_srxl2.h
+    io/esc_srxl2_bus.c
+    io/esc_srxl2_bus.h
     io/servo_sbus.c
     io/servo_sbus.h
     io/frsky_osd.c

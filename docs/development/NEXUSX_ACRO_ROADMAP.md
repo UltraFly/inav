@@ -17,7 +17,7 @@ Implementation stages:
 
 The shared layer ends at reliable bus operation and channel transport. Telemetry decoding and TextGen programming remain independent consumers so either feature can be reviewed, enabled, and tested without requiring the other.
 
-Current status: the transport-independent codec builds handshake frames and variable-length channel frames, orders channel values by mask bit, clamps PWM inputs, suppresses telemetry requests during failsafe, and is covered by native host tests. UART ownership, discovery, baud negotiation, and the live bus scheduler remain to be implemented.
+Current status: the transport-independent codec builds handshake frames and variable-length channel frames, orders channel values by mask bit, clamps PWM inputs, suppresses telemetry requests during failsafe, and is covered by native host tests. A separate host-tested discovery state machine enforces the shared-PWM startup guard, handshake retries, control gating, baud negotiation, late-device rescan, brownout re-handshake, and telemetry freshness. UART/timer ownership, half-duplex turnaround, control scheduling, and live sensor publication remain to be implemented; see [Avian SRXL2 bus-master design](AVIAN_SRXL2_BUS.md).
 
 ## 2. Avian ESC telemetry
 

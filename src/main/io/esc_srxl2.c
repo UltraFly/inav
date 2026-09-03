@@ -59,6 +59,11 @@ static uint16_t readU16BigEndian(const uint8_t *data)
     return ((uint16_t)data[0] << 8) | data[1];
 }
 
+static uint32_t readU32LittleEndian(const uint8_t *data)
+{
+    return data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24);
+}
+
 uint16_t srxl2EscPwmToChannelValue(uint16_t pulseUs)
 {
     const uint16_t constrainedPulseUs = pulseUs < SRXL2_ESC_PWM_MIN ? SRXL2_ESC_PWM_MIN :
@@ -98,6 +103,24 @@ size_t srxl2EscBuildHandshake(uint8_t *frame, size_t capacity, uint8_t sourceDev
     srxl2EscAppendCrc(dst, frame);
 
     return sbufPtr(dst) - frame;
+}
+
+bool srxl2EscDecodeHandshake(const uint8_t *frame, size_t length, srxl2EscHandshake_t *handshake)
+{
+    if (!frame || !handshake || length != SRXL2_ESC_HANDSHAKE_FRAME_SIZE ||
+        frame[0] != SRXL2_ID || frame[1] != SRXL2_PACKET_TYPE_HANDSHAKE || frame[2] != length ||
+        crc16_ccitt_update(0, frame, length) != 0) {
+        return false;
+    }
+
+    handshake->sourceDeviceId = frame[3];
+    handshake->destinationDeviceId = frame[4];
+    handshake->priority = frame[5];
+    handshake->supportsHighBaud = (frame[6] & 1) != 0;
+    handshake->info = frame[7];
+    handshake->uid = readU32LittleEndian(&frame[8]);
+
+    return true;
 }
 
 size_t srxl2EscBuildControlFrame(uint8_t *frame, size_t capacity, uint8_t replyDeviceId,
