@@ -145,6 +145,8 @@ set_property(SOURCE canard_unittest.cc PROPERTY extra_includes
     "../../lib/main/Dronecan/dsdlc_generated/include")
 set_property(SOURCE canard_unittest.cc PROPERTY definitions USE_DRONECAN CANARD_ENABLE_TAO_OPTION=0 CANARD_INTERNAL=)
 
+set_property(SOURCE esc_textgen_unittest.cc PROPERTY depends "io/esc_textgen.c")
+
 set_property(SOURCE osd_unittest.cc PROPERTY depends "io/osd_utils.c" "io/displayport_msp_osd.c" "common/typeconversion.c")
 set_property(SOURCE osd_unittest.cc PROPERTY definitions OSD_UNIT_TEST USE_MSP_DISPLAYPORT)
 
