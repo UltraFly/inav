@@ -596,6 +596,9 @@ void FAST_CODE NOINLINE gyroUpdate(void)
 
         gyro.gyroADCf[axis] = gyroADCf;
     }
+#ifdef USE_FW_GYRO_ASSIST
+    gyro.updateCount++;
+#endif
 }
 
 bool gyroReadTemperature(void)

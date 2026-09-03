@@ -117,6 +117,7 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT + 1] = {
     { .boxId = BOXAUTOSPEED,        .boxName = "AUTO SPEED",        .permanentId = 69 },
     { .boxId = BOXTERRAINAGLHOLD,   .boxName = "TERRAIN AGL HOLD",  .permanentId = 70 },
     { .boxId = BOXINFLIGHTMENU,     .boxName = "IN FLIGHT MENU",    .permanentId = 71 },
+    { .boxId = BOXGYROASSIST,       .boxName = "GYRO ASSIST",       .permanentId = 72 },
     { .boxId = CHECKBOX_ITEM_COUNT, .boxName = NULL,                .permanentId = 0xFF }
 };
 
@@ -281,6 +282,9 @@ void initActiveBoxIds(void)
     }
 
     if (STATE(AIRPLANE) || platformTypeConfigured(PLATFORM_AIRPLANE)) {
+#ifdef USE_FW_GYRO_ASSIST
+        ADD_ACTIVE_BOX(BOXGYROASSIST);
+#endif
         if (!feature(FEATURE_FW_LAUNCH)) {
            ADD_ACTIVE_BOX(BOXNAVLAUNCH);
         }
@@ -414,6 +418,9 @@ void packBoxModeFlags(boxBitmask_t * mspBoxModeFlags)
     CHECK_ACTIVE_BOX(IS_ENABLED(IS_RC_MODE_ACTIVE(BOXCAMSTAB)),         BOXCAMSTAB);
     CHECK_ACTIVE_BOX(IS_ENABLED(IS_RC_MODE_ACTIVE(BOXFPVANGLEMIX)),     BOXFPVANGLEMIX);
     CHECK_ACTIVE_BOX(IS_ENABLED(FLIGHT_MODE(MANUAL_MODE)),              BOXMANUAL);
+#ifdef USE_FW_GYRO_ASSIST
+    CHECK_ACTIVE_BOX(IS_ENABLED(IS_RC_MODE_ACTIVE(BOXGYROASSIST)),      BOXGYROASSIST);
+#endif
     CHECK_ACTIVE_BOX(IS_ENABLED(IS_RC_MODE_ACTIVE(BOXBEEPERON)),        BOXBEEPERON);
     CHECK_ACTIVE_BOX(IS_ENABLED(IS_RC_MODE_ACTIVE(BOXLEDLOW)),          BOXLEDLOW);
     CHECK_ACTIVE_BOX(IS_ENABLED(IS_RC_MODE_ACTIVE(BOXLIGHTS)),          BOXLIGHTS);

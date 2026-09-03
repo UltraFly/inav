@@ -22,6 +22,11 @@
 
 #define USBD_PRODUCT_STRING  "NEXUSX"
 
+// Fixed-wing MANUAL modifier. NEXUSX has sufficient flash headroom despite
+// using a 512 KiB F722, so opt it into the feature enabled generically on
+// larger targets by target/common.h.
+#define USE_FW_GYRO_ASSIST
+
 #define LED0                    PC10
 #define LED1                    PC11
 

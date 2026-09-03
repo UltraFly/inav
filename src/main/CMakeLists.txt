@@ -351,6 +351,10 @@ main_sources(COMMON_SRC
     flight/kalman.h
     flight/smith_predictor.c
     flight/smith_predictor.h
+    flight/fw_gyro_assist.c
+    flight/fw_gyro_assist.h
+    flight/fw_gyro_assist_config.c
+    flight/fw_gyro_assist_config.h
     flight/rate_dynamics.c
     flight/rate_dynamics.h
     flight/mixer.c

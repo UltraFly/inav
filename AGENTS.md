@@ -12,6 +12,17 @@
 - **Version**: see `project(INAV VERSION ...)` in the top-level `CMakeLists.txt` for the current version — don't hardcode it here, it drifts every release
 - **Codebase History**: Evolved from Cleanflight/Baseflight
 
+### Gyro Assist branch scope
+
+The `feature/gyro-assist` work is an independent, opt-in fixed-wing MANUAL-mode modifier. Keep the pilot stick as a direct normalized surface-deflection command and add only bounded, filtered body-rate damping in the local fixed-wing servo-mixer input path. Do not turn stick position into a rate target or modify PIFF, navigation, motor, throttle, or other primary flight modes.
+
+- Per-axis stick Priority reduces the effective damping gain as absolute stick deflection increases. It does not change the configured correction limit; final command saturation remains a separate safety bound.
+- Per-axis Stop Release controls how quickly effective damping gain falls as the stick moves away from center. Per-axis Stop Lock controls how quickly it returns as the stick is recentered.
+- Priority and Stop shaping affect rate damping only. Heading hold, attitude integration, self-leveling, envelope protection, SAFE-like recovery, and rate-command control are outside Gyro Assist scope and are already covered by other INAV modes.
+- Keep the modifier and all gains off by default. Preserve unmodified MANUAL pass-through exactly while inactive and retain the documented transition, failsafe, gyro-validity, and mode-inhibition behavior.
+- Expose settings through the existing generic MSPv2 setting commands for the independent `inav-gyro-assist` EdgeTX 2.11.0+ tool; do not add a feature-specific write protocol.
+- Keep this merge request free of Avian, SRXL2 ESC, telemetry, TextGen, and `inav-avian-esc` changes, and do not submit it upstream before hardware bench and staged flight validation.
+
 ## Architecture and Structure
 
 ### Core Components

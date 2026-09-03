@@ -65,6 +65,9 @@ typedef struct gyro_s {
     uint32_t targetLooptime;
     float gyroADCf[XYZ_AXIS_COUNT];
     float gyroRaw[XYZ_AXIS_COUNT];
+#ifdef USE_FW_GYRO_ASSIST
+    uint32_t updateCount;
+#endif
 } gyro_t;
 
 extern gyro_t gyro;

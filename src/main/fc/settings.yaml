@@ -4821,3 +4821,127 @@ groups:
         field: lookaheadDistM
         min: 0
         max: 2000
+  - name: PG_FW_GYRO_ASSIST_CONFIG
+    type: fwGyroAssistConfigStorage_t
+    headers: ["flight/fw_gyro_assist_config.h"]
+    condition: USE_FW_GYRO_ASSIST
+    members:
+      - name: gyro_assist_roll_gain
+        description: "Gyro Assist roll correction at 100 degrees/second, as a percentage of full mixer command. 0 disables correction on this axis."
+        default_value: 0
+        field: gain[FD_ROLL]
+        type: uint8_t
+        min: 0
+        max: 100
+      - name: gyro_assist_pitch_gain
+        description: "Gyro Assist pitch correction at 100 degrees/second, as a percentage of full mixer command. 0 disables correction on this axis."
+        default_value: 0
+        field: gain[FD_PITCH]
+        type: uint8_t
+        min: 0
+        max: 100
+      - name: gyro_assist_yaw_gain
+        description: "Gyro Assist yaw correction at 100 degrees/second, as a percentage of full mixer command. 0 disables correction on this axis."
+        default_value: 0
+        field: gain[FD_YAW]
+        type: uint8_t
+        min: 0
+        max: 100
+      - name: gyro_assist_roll_priority
+        description: "Gyro Assist roll stick priority. 0 leaves gain unchanged by stick, 100 reaches zero gain at full stick, and values above 100 reach zero gain earlier."
+        default_value: 100
+        field: stickPriority[FD_ROLL]
+        type: uint8_t
+        min: 0
+        max: 200
+      - name: gyro_assist_pitch_priority
+        description: "Gyro Assist pitch stick priority. 0 leaves gain unchanged by stick, 100 reaches zero gain at full stick, and values above 100 reach zero gain earlier."
+        default_value: 100
+        field: stickPriority[FD_PITCH]
+        type: uint8_t
+        min: 0
+        max: 200
+      - name: gyro_assist_yaw_priority
+        description: "Gyro Assist yaw stick priority. 0 leaves gain unchanged by stick, 100 reaches zero gain at full stick, and values above 100 reach zero gain earlier."
+        default_value: 100
+        field: stickPriority[FD_YAW]
+        type: uint8_t
+        min: 0
+        max: 200
+      - name: gyro_assist_roll_stop_release_ms
+        description: "PT1 time constant in milliseconds for reducing roll damping gain when the roll stick moves away from center. 0 is immediate."
+        default_value: 50
+        field: stopReleaseTimeMs[FD_ROLL]
+        type: uint16_t
+        min: 0
+        max: 2000
+      - name: gyro_assist_pitch_stop_release_ms
+        description: "PT1 time constant in milliseconds for reducing pitch damping gain when the pitch stick moves away from center. 0 is immediate."
+        default_value: 50
+        field: stopReleaseTimeMs[FD_PITCH]
+        type: uint16_t
+        min: 0
+        max: 2000
+      - name: gyro_assist_yaw_stop_release_ms
+        description: "PT1 time constant in milliseconds for reducing yaw damping gain when the yaw stick moves away from center. 0 is immediate."
+        default_value: 50
+        field: stopReleaseTimeMs[FD_YAW]
+        type: uint16_t
+        min: 0
+        max: 2000
+      - name: gyro_assist_roll_stop_lock_ms
+        description: "PT1 time constant in milliseconds for restoring roll damping gain as the roll stick returns to center. 0 is immediate."
+        default_value: 250
+        field: stopLockTimeMs[FD_ROLL]
+        type: uint16_t
+        min: 0
+        max: 2000
+      - name: gyro_assist_pitch_stop_lock_ms
+        description: "PT1 time constant in milliseconds for restoring pitch damping gain as the pitch stick returns to center. 0 is immediate."
+        default_value: 250
+        field: stopLockTimeMs[FD_PITCH]
+        type: uint16_t
+        min: 0
+        max: 2000
+      - name: gyro_assist_yaw_stop_lock_ms
+        description: "PT1 time constant in milliseconds for restoring yaw damping gain as the yaw stick returns to center. 0 is immediate."
+        default_value: 250
+        field: stopLockTimeMs[FD_YAW]
+        type: uint16_t
+        min: 0
+        max: 2000
+      - name: gyro_assist_roll_limit
+        description: "Maximum Gyro Assist roll correction as a percentage of full mixer command."
+        default_value: 20
+        field: correctionLimit[FD_ROLL]
+        type: uint8_t
+        min: 0
+        max: 50
+      - name: gyro_assist_pitch_limit
+        description: "Maximum Gyro Assist pitch correction as a percentage of full mixer command."
+        default_value: 20
+        field: correctionLimit[FD_PITCH]
+        type: uint8_t
+        min: 0
+        max: 50
+      - name: gyro_assist_yaw_limit
+        description: "Maximum Gyro Assist yaw correction as a percentage of full mixer command."
+        default_value: 20
+        field: correctionLimit[FD_YAW]
+        type: uint8_t
+        min: 0
+        max: 50
+      - name: gyro_assist_lpf_hz
+        description: "Gyro Assist correction low-pass cutoff in Hz. 0 bypasses the additional filter."
+        default_value: 20
+        field: gyroLpfHz
+        type: uint8_t
+        min: 0
+        max: 100
+      - name: gyro_assist_transition_ms
+        description: "Time in milliseconds used to blend Gyro Assist in and out."
+        default_value: 250
+        field: transitionTimeMs
+        type: uint16_t
+        min: 20
+        max: 2000

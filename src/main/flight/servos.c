@@ -50,6 +50,10 @@
 #include "fc/settings.h"
 
 #include "flight/imu.h"
+#ifdef USE_FW_GYRO_ASSIST
+#include "flight/fw_gyro_assist.h"
+#include "flight/fw_gyro_assist_config.h"
+#endif
 #include "flight/mixer.h"
 #include "flight/mixer_profile.h"
 #include "flight/mixer_transition_logic.h"
@@ -138,6 +142,83 @@ static bool carryOverServoSpeedLimitsOnNextLoad = true;
 STATIC_FASTRAM pt1Filter_t rotRateFilter;
 STATIC_FASTRAM pt1Filter_t targetRateFilter;
 
+#ifdef USE_FW_GYRO_ASSIST
+#define FW_GYRO_ASSIST_COMMAND_SCALE 500.0f
+#define FW_GYRO_ASSIST_GYRO_TIMEOUT_MS 20
+
+static fwGyroAssistController_t gyroAssistController;
+static uint32_t gyroAssistLastGyroUpdateCount;
+static timeMs_t gyroAssistLastGyroUpdateMs;
+static bool gyroAssistHasGyroSample;
+
+static void applyGyroAssist(int16_t input[INPUT_SOURCE_COUNT], float dT)
+{
+    const bool requested = IS_RC_MODE_ACTIVE(BOXGYROASSIST);
+
+    // Preserve the legacy MANUAL/assisted command path byte-for-byte while
+    // the opt-in modifier is dormant.
+    if (!requested && gyroAssistController.blend <= 0.0f) {
+        return;
+    }
+
+    const fwGyroAssistConfigStorage_t *storedConfig = fwGyroAssistConfig();
+    fwGyroAssistConfig_t config = {
+        .gyroLpfHz = storedConfig->gyroLpfHz,
+        .transitionTimeMs = storedConfig->transitionTimeMs,
+        .gyroTimeoutMs = FW_GYRO_ASSIST_GYRO_TIMEOUT_MS,
+    };
+
+    const timeMs_t nowMs = millis();
+    if (gyro.updateCount != gyroAssistLastGyroUpdateCount) {
+        gyroAssistLastGyroUpdateCount = gyro.updateCount;
+        gyroAssistLastGyroUpdateMs = nowMs;
+        gyroAssistHasGyroSample = true;
+    }
+    fwGyroAssistInput_t gyroAssistInput = {
+        .deltaTimeSeconds = dT,
+        .nowMs = nowMs,
+        .gyroSampleTimeMs = gyroAssistLastGyroUpdateMs,
+        .conditions = {
+            .requested = requested,
+            .fixedWing = STATE(AIRPLANE),
+            .armed = ARMING_FLAG(ARMED),
+            .failsafe = FLIGHT_MODE(FAILSAFE_MODE),
+            .navigationActive = isUsingNavigationModes(),
+            .launchActive = FLIGHT_MODE(NAV_LAUNCH_MODE),
+            .autotrimActive = isFwAutoModeActive(BOXAUTOTRIM),
+            .modeAllowed = FLIGHT_MODE(MANUAL_MODE),
+            .gyroValid = gyro.initialized && gyroAssistHasGyroSample,
+        },
+    };
+
+    for (unsigned axis = 0; axis < FW_GYRO_ASSIST_AXIS_COUNT; axis++) {
+        config.gyroGain[axis] = storedConfig->gain[axis] / 10000.0f;
+        config.correctionLimit[axis] = storedConfig->correctionLimit[axis] / 100.0f;
+        config.stickPriority[axis] = storedConfig->stickPriority[axis] / 100.0f;
+        config.stopReleaseTimeMs[axis] = storedConfig->stopReleaseTimeMs[axis];
+        config.stopLockTimeMs[axis] = storedConfig->stopLockTimeMs[axis];
+        gyroAssistInput.pilotCommand[axis] = rcCommand[axis] / FW_GYRO_ASSIST_COMMAND_SCALE;
+        gyroAssistInput.fallbackCommand[axis] = input[INPUT_STABILIZED_ROLL + axis] / FW_GYRO_ASSIST_COMMAND_SCALE;
+        gyroAssistInput.gyroRateDps[axis] = gyro.gyroADCf[axis];
+    }
+
+    const fwGyroAssistOutput_t output = fwGyroAssistUpdate(&gyroAssistController, &config, &gyroAssistInput);
+
+    for (unsigned axis = 0; axis < FW_GYRO_ASSIST_AXIS_COUNT; axis++) {
+        input[INPUT_STABILIZED_ROLL + axis] = constrain(lrintf(output.axis[axis].command * FW_GYRO_ASSIST_COMMAND_SCALE), -500, 500);
+    }
+
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 0, lrintf(output.axis[FD_ROLL].pilotCommand * FW_GYRO_ASSIST_COMMAND_SCALE));
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 1, lrintf(output.axis[FD_ROLL].correction * FW_GYRO_ASSIST_COMMAND_SCALE));
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 2, input[INPUT_STABILIZED_ROLL]);
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 3, lrintf(output.axis[FD_PITCH].pilotCommand * FW_GYRO_ASSIST_COMMAND_SCALE));
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 4, lrintf(output.axis[FD_PITCH].correction * FW_GYRO_ASSIST_COMMAND_SCALE));
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 5, input[INPUT_STABILIZED_PITCH]);
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 6, lrintf(output.axis[FD_YAW].correction * FW_GYRO_ASSIST_COMMAND_SCALE));
+    DEBUG_SET(DEBUG_GYRO_ASSIST, 7, output.phase * 1000 + output.reason);
+}
+#endif
+
 int16_t getFlaperonDirection(uint8_t servoPin)
 {
     if (servoPin == SERVO_FLAPPERON_2) {
@@ -184,6 +265,12 @@ void computeServoCount(void)
 
 void servosInit(void)
 {
+#ifdef USE_FW_GYRO_ASSIST
+    fwGyroAssistInit(&gyroAssistController);
+    gyroAssistLastGyroUpdateCount = gyro.updateCount;
+    gyroAssistLastGyroUpdateMs = millis();
+    gyroAssistHasGyroSample = false;
+#endif
     // give all servos a default command
     for (int i = 0; i < MAX_SUPPORTED_SERVOS; i++) {
         servo[i] = servoParams(i)->middle;
@@ -662,6 +749,10 @@ void servoMixer(float dT)
             input[INPUT_STABILIZED_YAW] *= -1;
         }
     }
+
+#ifdef USE_FW_GYRO_ASSIST
+    applyGyroAssist(input, dT);
+#endif
 
 #ifdef USE_AUTO_TRANSITION
     // These preview inputs are only for pre-switch FW servo handoff.
