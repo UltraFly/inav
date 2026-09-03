@@ -329,6 +329,8 @@ main_sources(COMMON_SRC
     flight/kalman.h
     flight/smith_predictor.c
     flight/smith_predictor.h
+    flight/fw_surface_deflection.c
+    flight/fw_surface_deflection.h
     flight/rate_dynamics.c
     flight/rate_dynamics.h
     flight/mixer.c
