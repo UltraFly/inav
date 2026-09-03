@@ -22,6 +22,7 @@
  * along with this program. If not, see http://www.gnu.org/licenses/.
  */
 
+#include <limits.h>
 #include <string.h>
 
 #include "platform.h"
@@ -30,6 +31,8 @@
 #include "common/streambuf.h"
 
 #include "io/esc_srxl2.h"
+
+#include "sensors/esc_sensor_data.h"
 
 #define SRXL2_ID                         0xA6
 #define SRXL2_PACKET_TYPE_HANDSHAKE      0x21
@@ -40,6 +43,10 @@
 #define SPEKTRUM_TELEMETRY_DEVICE_ESC    0x20
 #define SPEKTRUM_TELEMETRY_NO_DATA_16    0xFFFF
 #define SPEKTRUM_TELEMETRY_NO_DATA_8     0xFF
+#define SPEKTRUM_ESC_THROTTLE_MAX         200
+
+// Packet layout and channel ordering follow the public Spektrum SRXL2 reference implementation:
+// https://github.com/SpektrumRC/SRXL2
 
 static void srxl2EscAppendCrc(sbuf_t *dst, uint8_t *start)
 {
@@ -94,10 +101,28 @@ size_t srxl2EscBuildHandshake(uint8_t *frame, size_t capacity, uint8_t sourceDev
 }
 
 size_t srxl2EscBuildControlFrame(uint8_t *frame, size_t capacity, uint8_t replyDeviceId,
-    int8_t rssi, uint16_t frameLosses, uint8_t throttleChannel, uint16_t throttlePulseUs, bool failsafe)
+    int8_t rssi, uint16_t frameLosses, const srxl2EscChannel_t *channels, size_t channelCount, bool failsafe)
 {
-    if (!frame || capacity < SRXL2_ESC_CONTROL_FRAME_SIZE || throttleChannel >= 32) {
+    if (!frame || !channels || channelCount == 0 || channelCount > 32) {
         return 0;
+    }
+
+    const size_t frameSize = SRXL2_ESC_CONTROL_FRAME_BASE_SIZE + (2 * channelCount);
+    if (capacity < frameSize) {
+        return 0;
+    }
+
+    uint32_t channelMask = 0;
+    for (size_t i = 0; i < channelCount; i++) {
+        if (channels[i].channel >= 32) {
+            return 0;
+        }
+
+        const uint32_t channelBit = 1UL << channels[i].channel;
+        if (channelMask & channelBit) {
+            return 0;
+        }
+        channelMask |= channelBit;
     }
 
     sbuf_t buffer;
@@ -105,13 +130,26 @@ size_t srxl2EscBuildControlFrame(uint8_t *frame, size_t capacity, uint8_t replyD
 
     sbufWriteU8(dst, SRXL2_ID);
     sbufWriteU8(dst, SRXL2_PACKET_TYPE_CONTROL);
-    sbufWriteU8(dst, SRXL2_ESC_CONTROL_FRAME_SIZE);
+    sbufWriteU8(dst, frameSize);
     sbufWriteU8(dst, failsafe ? SRXL2_CONTROL_COMMAND_FAILSAFE : SRXL2_CONTROL_COMMAND_CHANNEL);
-    sbufWriteU8(dst, replyDeviceId);
+    sbufWriteU8(dst, failsafe ? 0 : replyDeviceId);
     sbufWriteU8(dst, rssi);
     sbufWriteU16(dst, frameLosses);
-    sbufWriteU32(dst, 1UL << throttleChannel);
-    sbufWriteU16(dst, srxl2EscPwmToChannelValue(throttlePulseUs));
+    sbufWriteU32(dst, channelMask);
+
+    for (uint8_t channel = 0; channel < 32; channel++) {
+        const uint32_t channelBit = 1UL << channel;
+        if (!(channelMask & channelBit)) {
+            continue;
+        }
+
+        for (size_t i = 0; i < channelCount; i++) {
+            if (channels[i].channel == channel) {
+                sbufWriteU16(dst, srxl2EscPwmToChannelValue(channels[i].pulseUs));
+                break;
+            }
+        }
+    }
     srxl2EscAppendCrc(dst, frame);
 
     return sbufPtr(dst) - frame;
@@ -173,7 +211,7 @@ srxl2EscDecodeResult_e srxl2EscDecodeTelemetry(const uint8_t *frame, size_t leng
         telemetry->valid |= SRXL2_ESC_TELEMETRY_BEC_VOLTAGE_VALID;
     }
 
-    if (frame[18] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
+    if (frame[18] <= SPEKTRUM_ESC_THROTTLE_MAX) {
         telemetry->throttleHalfPercent = frame[18];
         telemetry->valid |= SRXL2_ESC_TELEMETRY_THROTTLE_VALID;
     }
@@ -184,4 +222,42 @@ srxl2EscDecodeResult_e srxl2EscDecodeTelemetry(const uint8_t *frame, size_t leng
     }
 
     return SRXL2_ESC_DECODE_OK;
+}
+
+uint16_t srxl2EscApplyTelemetry(const srxl2EscTelemetry_t *telemetry, uint8_t motorPoleCount,
+    struct escSensorData_s *sensorData)
+{
+    if (!telemetry || !sensorData) {
+        return 0;
+    }
+
+    uint16_t applied = 0;
+
+    if ((telemetry->valid & SRXL2_ESC_TELEMETRY_ERPM_VALID) &&
+        motorPoleCount >= 2 && (motorPoleCount % 2) == 0) {
+        const uint32_t polePairs = motorPoleCount / 2;
+        sensorData->rpm = (telemetry->electricalRpm + (polePairs / 2)) / polePairs;
+        applied |= SRXL2_ESC_TELEMETRY_ERPM_VALID;
+    }
+
+    if (telemetry->valid & SRXL2_ESC_TELEMETRY_VOLTAGE_VALID) {
+        sensorData->voltage = telemetry->voltageCentiVolts > INT16_MAX ? INT16_MAX : telemetry->voltageCentiVolts;
+        applied |= SRXL2_ESC_TELEMETRY_VOLTAGE_VALID;
+    }
+
+    if (telemetry->valid & SRXL2_ESC_TELEMETRY_FET_TEMP_VALID) {
+        sensorData->temperature = (telemetry->fetTemperatureDeciCelsius + 5) / 10;
+        applied |= SRXL2_ESC_TELEMETRY_FET_TEMP_VALID;
+    }
+
+    if (telemetry->valid & SRXL2_ESC_TELEMETRY_CURRENT_VALID) {
+        sensorData->current = telemetry->currentCentiAmps;
+        applied |= SRXL2_ESC_TELEMETRY_CURRENT_VALID;
+    }
+
+    if (applied) {
+        sensorData->dataAge = 0;
+    }
+
+    return applied;
 }

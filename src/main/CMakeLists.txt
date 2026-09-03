@@ -466,6 +466,7 @@ main_sources(COMMON_SRC
     sensors/initialisation.h
     sensors/esc_sensor.c
     sensors/esc_sensor.h
+    sensors/esc_sensor_data.h
     sensors/irlock.c
     sensors/irlock.h
     sensors/sensors.c

@@ -28,9 +28,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SRXL2_ESC_HANDSHAKE_FRAME_SIZE 14
-#define SRXL2_ESC_CONTROL_FRAME_SIZE   16
-#define SRXL2_ESC_TELEMETRY_FRAME_SIZE 22
+#define SRXL2_ESC_HANDSHAKE_FRAME_SIZE       14
+#define SRXL2_ESC_CONTROL_FRAME_BASE_SIZE    14
+#define SRXL2_ESC_CONTROL_FRAME_MAX_SIZE     78
+#define SRXL2_ESC_TELEMETRY_FRAME_SIZE       22
 
 #define SRXL2_ESC_DEVICE_ID_DEFAULT    0x40
 #define SRXL2_ESC_DEVICE_ID_BROADCAST  0xFF
@@ -72,12 +73,23 @@ typedef enum {
     SRXL2_ESC_DECODE_OK,
 } srxl2EscDecodeResult_e;
 
+typedef struct srxl2EscChannel_s {
+    uint8_t channel;
+    uint16_t pulseUs;
+} srxl2EscChannel_t;
+
+struct escSensorData_s;
+
 uint16_t srxl2EscPwmToChannelValue(uint16_t pulseUs);
 
 size_t srxl2EscBuildHandshake(uint8_t *frame, size_t capacity, uint8_t sourceDeviceId,
     uint8_t destinationDeviceId, uint8_t priority, bool supportsHighBaud, uint8_t info, uint32_t uid);
 
 size_t srxl2EscBuildControlFrame(uint8_t *frame, size_t capacity, uint8_t replyDeviceId,
-    int8_t rssi, uint16_t frameLosses, uint8_t throttleChannel, uint16_t throttlePulseUs, bool failsafe);
+    int8_t rssi, uint16_t frameLosses, const srxl2EscChannel_t *channels, size_t channelCount, bool failsafe);
 
 srxl2EscDecodeResult_e srxl2EscDecodeTelemetry(const uint8_t *frame, size_t length, srxl2EscTelemetry_t *telemetry);
+
+// Updates only the standard INAV ESC fields present in telemetry and returns their validity mask.
+uint16_t srxl2EscApplyTelemetry(const srxl2EscTelemetry_t *telemetry, uint8_t motorPoleCount,
+    struct escSensorData_s *sensorData);

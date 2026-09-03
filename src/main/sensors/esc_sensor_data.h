@@ -24,19 +24,15 @@
 
 #pragma once
 
-#include "sensors/esc_sensor_data.h"
+#include <stdint.h>
 
-typedef struct escSensorConfig_s {
-    uint16_t currentOffset;             // offset consumed by the flight controller / VTX / cam / ... in mA
-    uint8_t  listenOnly;
-} escSensorConfig_t;
+typedef struct escSensorData_s {
+    uint8_t dataAge;
+    int16_t temperature;
+    int16_t voltage;
+    int32_t current;
+    uint32_t rpm;
+} escSensorData_t;
 
-PG_DECLARE(escSensorConfig_t, escSensorConfig);
-
-#define ERPM_PER_LSB        100.0f
-
-bool escSensorInitialize(void);
-void escSensorUpdate(timeUs_t currentTimeUs);
-escSensorData_t * escSensorGetData(void);
-escSensorData_t * getEscTelemetry(uint8_t esc);
-uint32_t computeRpm(int16_t erpm);
+#define ESC_DATA_MAX_AGE    10
+#define ESC_DATA_INVALID    255

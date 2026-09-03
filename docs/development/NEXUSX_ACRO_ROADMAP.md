@@ -17,6 +17,8 @@ Implementation stages:
 
 The shared layer ends at reliable bus operation and channel transport. Telemetry decoding and TextGen programming remain independent consumers so either feature can be reviewed, enabled, and tested without requiring the other.
 
+Current status: the transport-independent codec builds handshake frames and variable-length channel frames, orders channel values by mask bit, clamps PWM inputs, suppresses telemetry requests during failsafe, and is covered by native host tests. UART ownership, discovery, baud negotiation, and the live bus scheduler remain to be implemented.
+
 ## 2. Avian ESC telemetry
 
 Decode Spektrum ESC sensor `0x20` data and convert it to INAV's existing `escSensorData_t` units so battery metering, OSD, blackbox, and radio telemetry work without protocol-specific consumers.
@@ -27,6 +29,8 @@ Implementation stages:
 2. Map voltage, current, RPM, temperature, throttle, BEC, and other supported fields into existing INAV units with explicit unavailable-value handling.
 3. Verify polling cadence, timeout behavior, late ESC power-up, CRC rejection, bus recovery, and PWM fallback.
 4. Bench-test live values against a known reference with the propeller removed and record the ESC model, firmware, baud rate, and captures.
+
+Current status: sensor `0x20` decoding, CRC and length validation, unavailable-value handling, throttle range validation, and conversion of RPM, voltage, FET temperature, and motor current into INAV ESC sensor units are covered by native host tests. Publishing those values to the live sensor subsystem awaits the bus transport; BEC, throttle, and power-output values remain available in the protocol-specific structure for a future MSP/radio status interface.
 
 ## 3. Avian ESC TextGen programming
 
