@@ -10,6 +10,8 @@ The implementation follows the public Spektrum SRXL2 Rev K specification and use
 
 `io/esc_srxl2_bus.c` owns the transport-independent safety states. It does not configure pins, start a timer, open a UART, or schedule tasks. A future hardware adapter will perform those operations and will use this state machine to decide when serial transmission is permitted.
 
+`io/esc_srxl2_control.c` owns the transport-independent 11 ms control cadence, receiver and failsafe channel snapshots, safe-throttle substitution, stale-input handling, and bounded programming overrides. It accepts INAV's sequential transmitter-channel vector, preserves indices `0` through `31`, and deliberately omits only channels that cannot be represented by SRXL2's 32-bit mask.
+
 The bus layer currently supports one directly connected ESC in the `0x40` device-ID range. It deliberately does not implement receiver-side SRXL2, DSM RF transport, or TextGen session behavior.
 
 ## Discovery states
@@ -40,11 +42,12 @@ The adapter must obey all of the following rules:
 3. On `PWM_FALLBACK`, close or release the UART before assigning the timer resource and producing a defined safe PWM throttle value.
 4. Once a valid ESC handshake selects SRXL2, never assign the same pin to the timer until the bus has been disabled and a deliberate fallback transition has completed.
 5. Call `srxl2EscBusOnFrameTransmitted()` only after UART transmission-complete, not merely after filling the transmit register or DMA buffer. This prevents switching to 400000 baud before the final 115200-baud handshake is complete.
-6. Send channel frames only through `srxl2EscBusBuildControlFrame()`, which rejects them outside `RUNNING`.
-7. Override the configured throttle channel to the safe minimum during discovery, disarm, failsafe, and TextGen programming. The current bus state machine gates transmission but does not infer channel roles or aircraft safety state.
-8. Use a zero reply ID in failsafe frames. The codec enforces this even if a caller supplies an ESC reply ID.
-9. Mark telemetry fresh only after complete length and CRC validation. Expired data must not be published as current ESC sensor data.
-10. Allow `srxl2EscBusRestartDiscovery()` from PWM fallback only after the aircraft is disarmed, throttle is at minimum, PWM has stopped, and the pin is back in receive mode.
+6. Send scheduled channel frames only through `srxl2EscControlSchedulerBuildFrame()`. It delegates final bus-state gating to `srxl2EscBusBuildControlFrame()`, so neither layer permits control transmission outside `RUNNING`.
+7. Feed the scheduler receiver channels in their original transmitter-number order, before any INAV logical-function remapping. It forwards every configured channel representable by SRXL2 (protocol indices `0` through `31`). This lets the ESC observe an auxiliary channel selected in TextGen, such as the captured `THRUST REV = CH9` assignment.
+8. Configure a complete failsafe vector before enabling control transmission. The scheduler overrides the configured throttle channel to the safe minimum during disarm, failsafe, stale input, and TextGen programming. It refuses to send a stale/failsafe frame if any normally forwarded channel lacks an explicit failsafe value, preventing stale or undefined AUX values from reaching the ESC. The ESC-selected thrust-reverse channel must have a verified non-reverse failsafe value.
+9. Use a zero reply ID in failsafe frames. The codec enforces this even if a caller supplies an ESC reply ID.
+10. Mark telemetry fresh only after complete length and CRC validation. Expired data must not be published as current ESC sensor data.
+11. Allow `srxl2EscBusRestartDiscovery()` from PWM fallback only after the aircraft is disarmed, throttle is at minimum, PWM has stopped, and the pin is back in receive mode.
 
 The UART must use half-duplex single-wire behavior and leave the bus undriven while idle. Turnaround timing and the two-character inter-packet idle requirement still need to be implemented and verified in the hardware adapter.
 
@@ -63,7 +66,19 @@ Native unit tests cover:
 - telemetry freshness expiration, including a 32-bit clock wrap;
 - disabled-bus behavior.
 
-The packet codec separately covers multi-channel ordering, PWM range conversion, failsafe reply suppression, malformed telemetry, unavailable fields, field ranges, electrical-to-mechanical RPM conversion, and INAV unit conversion.
+The control scheduler tests additionally cover:
+
+- immediate first output followed by an 11 ms cadence without catch-up bursts;
+- bus-state gating and deterministic timing reset;
+- forwarding 9, 16, and up to 32 sequential transmitter channels while capping INAV's larger vector;
+- preservation of the captured human `CH9` thrust-reverse assignment as protocol index `8`;
+- safe throttle during disarm, programming, stale input, and explicit failsafe;
+- complete failsafe-vector enforcement and telemetry-reply suppression;
+- programming overrides that affect only requested channels and cannot override the throttle guard;
+- unsafe or malformed programming requests falling back to failsafe;
+- stale-input and cadence behavior across a 32-bit microsecond clock wrap.
+
+The packet codec separately covers multi-channel ordering, the complete 32-channel mask, preservation of the human `CH9` thrust-reverse assignment as protocol channel index `8`, PWM range conversion, failsafe reply suppression, malformed telemetry, unavailable fields, field ranges, electrical-to-mechanical RPM conversion, and INAV unit conversion.
 
 ## Hardware-deferred validation
 

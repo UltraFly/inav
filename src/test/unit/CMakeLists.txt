@@ -37,6 +37,9 @@ set_property(SOURCE circular_queue_unittest.cc PROPERTY depends "common/circular
 set_property(SOURCE esc_srxl2_bus_unittest.cc PROPERTY depends
     "common/crc.c" "common/streambuf.c" "io/esc_srxl2.c" "io/esc_srxl2_bus.c")
 
+set_property(SOURCE esc_srxl2_control_unittest.cc PROPERTY depends
+    "common/crc.c" "common/streambuf.c" "io/esc_srxl2.c" "io/esc_srxl2_bus.c" "io/esc_srxl2_control.c")
+
 set_property(SOURCE esc_srxl2_unittest.cc PROPERTY depends "common/crc.c" "common/streambuf.c" "io/esc_srxl2.c")
 
 set_property(SOURCE osd_unittest.cc PROPERTY depends "io/osd_utils.c" "io/displayport_msp_osd.c" "common/typeconversion.c")
