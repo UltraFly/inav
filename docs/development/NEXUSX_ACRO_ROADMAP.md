@@ -11,13 +11,13 @@ The current NEXUSX target maps USART1 to the separate PB6/PB7 AUX/SBUS pins, how
 Implementation stages:
 
 1. Add a transport-independent SRXL2 ESC codec with host unit tests.
-2. Expand control framing from throttle-only to a channel mask containing throttle, aileron, elevator, and an optional reversing/auxiliary channel. TextGen programming relies on these ordinary channel values.
+2. Add a minimal control scheduler that transmits only the configured throttle channel. Full channel forwarding and thrust reverse remain part of the later TextGen feature.
 3. Add a single-wire, half-duplex bus-master state machine: listen before transmit, discover ESC device `0x40`, negotiate baud rate, send channel data, request telemetry, and recover after a bus reset.
 4. Add an SRXL2 motor protocol and ensure timer/UART ownership is exclusive. Initially support one aircraft ESC only.
 
-The shared layer ends at reliable bus operation and channel transport. Telemetry decoding and TextGen programming remain independent consumers so either feature can be reviewed, enabled, and tested without requiring the other.
+The first Avian feature combines reliable SRXL2 bus operation, safe throttle-only control, and ESC telemetry because direct sensor polling cannot operate without the FC acting as bus master. TextGen programming remains a later feature built on this accepted transport.
 
-Current status: the transport-independent codec builds handshake frames and variable-length channel frames, orders channel values by mask bit, clamps PWM inputs, suppresses telemetry requests during failsafe, and is covered by native host tests. A separate host-tested discovery state machine enforces the shared-PWM startup guard, handshake retries, control gating, baud negotiation, late-device rescan, brownout re-handshake, and telemetry freshness. The host-tested control scheduler now sends at an 11 ms cadence, preserves the first 32 transmitter-channel indices, caps INAV's larger channel vector, forces safe throttle during disarm/programming/failsafe, substitutes only a complete configured failsafe vector for stale input, and applies bounded programming overrides without disturbing other AUX channels. UART/timer ownership, half-duplex turnaround, and live sensor publication remain to be implemented; see [Avian SRXL2 bus-master design](AVIAN_SRXL2_BUS.md).
+Current status: the transport-independent codec builds handshake and channel frames, clamps PWM inputs, suppresses telemetry requests during failsafe, and is covered by native host tests. A separate host-tested discovery state machine enforces the shared-PWM startup guard, handshake retries, control gating, baud negotiation, late-device rescan, brownout re-handshake, and telemetry freshness. The host-tested control scheduler sends only the configured throttle channel at an 11 ms cadence and forces safe throttle during disarm, stale input, and failsafe. UART/timer ownership, half-duplex turnaround, and live sensor publication remain to be implemented; see [Avian SRXL2 bus-master design](AVIAN_SRXL2_BUS.md).
 
 ## 2. Avian ESC telemetry
 
@@ -43,10 +43,11 @@ Implementation stages:
 1. Decode TextGen frames into a bounded nine-line, 13-character display model with strict instance, line, length, and character validation.
 2. Implement line `254` refresh/backlight and line `255` clear behavior with host fixtures based on documented or captured traffic.
 3. Add an explicit programming-session state machine that requires disarm and zero throttle before entry.
-4. Translate bounded navigation actions into the required aileron/elevator SRXL2 channel values without allowing throttle to rise.
-5. Expose the display model, navigation state, errors, and power-cycle requirement through MSP for radio clients.
-6. Restore normal channel forwarding deterministically on exit, timeout, malformed traffic, link loss, failsafe, or reboot.
-7. Bench-test entry, navigation, setting changes, exit, persistence after power cycle, and every abort path with the propeller removed.
+4. Expand the telemetry scheduler to forward every configured channel representable by SRXL2 while preserving transmitter numbering, including the ordinary AUX channel selected for thrust reverse.
+5. Translate bounded navigation actions into the required aileron/elevator SRXL2 channel values without allowing throttle to rise.
+6. Expose the display model, navigation state, errors, and power-cycle requirement through MSP for radio clients.
+7. Restore normal channel forwarding deterministically on exit, timeout, malformed traffic, link loss, failsafe, or reboot.
+8. Bench-test entry, navigation, setting changes, thrust reverse, exit, persistence after power cycle, and every abort path with the propeller removed.
 
 ## 4. Surface-deflection stabilization
 
