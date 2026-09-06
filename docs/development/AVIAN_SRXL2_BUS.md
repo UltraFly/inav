@@ -6,18 +6,18 @@ The implementation follows the public Spektrum SRXL2 Rev K specification and use
 
 ## Development branch boundary
 
-`feature/avian-esc-telemetry` is the Avian foundation and the second of three canonical project branches:
+`feature/avian-esc-telemetry` is the Avian foundation and the parent of this TextGen branch:
 
 ```text
 feature/gyro-assist                 (independent Gyro Assist and Lua tool)
 
-feature/avian-esc-telemetry         (this branch)
-└── feature/avian-esc-textgen       (later configuration work)
+feature/avian-esc-telemetry         (inherited parent)
+└── feature/avian-esc-textgen       (this branch)
 ```
 
-This branch intentionally combines SRXL2 bus-master infrastructure with sensor `0x20` telemetry because direct telemetry polling cannot work without the FC owning that bus. Its control scheduler sends only the configured throttle channel. It excludes sensor `0x0C`, aileron/elevator/AUX forwarding, thrust reverse, TextGen sessions and navigation, TextGen MSP messages, and `inav-avian-esc`.
+The parent branch intentionally combines SRXL2 bus-master infrastructure with sensor `0x20` telemetry because direct telemetry polling cannot work without the FC owning that bus. On the parent, the control scheduler sends only the configured throttle channel and excludes all TextGen behavior. This child branch expands that scheduler for full configured-channel forwarding, thrust reverse, and bounded programming overrides, and adds sensor `0x0C` plus `inav-avian-esc`.
 
-Shared Avian transport fixes are made here first. The TextGen branch must then be rebased onto this branch so it inherits the fix without creating a second bus implementation. TextGen-only behavior must never be back-ported here. This branch is the sole source for the planned SRXL2 bus-master and Avian telemetry upstream merge request; Gyro Assist is reviewed separately from `feature/gyro-assist`.
+Shared Avian transport fixes are made on `feature/avian-esc-telemetry` first. This branch must then be rebased onto the updated parent so it inherits the fix without creating a second bus implementation. TextGen-only behavior must never be back-ported to the telemetry branch. Gyro Assist is reviewed separately from `feature/gyro-assist`.
 
 ## Scope
 

@@ -6,6 +6,21 @@ Within this project, TextGen is the only mechanism used to program an Avian ESC.
 
 This first firmware-side increment is hardware-independent. It decodes the 16-byte Spektrum TextGen sensor payload and models a bounded programming session; it does not yet connect the model to an SRXL2 UART, MSP, or an EdgeTX write interface.
 
+## Development branch boundary
+
+`feature/avian-esc-textgen` is the later, stacked branch in the three-branch project layout:
+
+```text
+feature/gyro-assist                 (independent Gyro Assist and Lua tool)
+
+feature/avian-esc-telemetry         (SRXL2 bus, throttle only, sensor 0x20)
+└── feature/avian-esc-textgen       (this branch)
+```
+
+The parent telemetry branch is the only implementation of the shared SRXL2 bus. This branch inherits that transport and adds the riskier configuration behavior: full configured-channel forwarding, ordinary AUX thrust reverse, complete per-channel failsafes, sensor `0x0C`, programming-session and navigation overrides, the future TextGen MSP interface, and `inav-avian-esc`. It must not contain Gyro Assist or `inav-gyro-assist`.
+
+Transport and sensor `0x20` corrections are made on `feature/avian-esc-telemetry`, then this branch is rebased onto the new parent tip. TextGen, reverse, navigation, and full-channel changes remain here. This branch is proposed upstream only after the telemetry/SRXL2 work has been accepted and the additional control paths have completed their own hardware safety validation.
+
 ## Payload model
 
 Spektrum sensor `0x0C` is a fixed 16-byte payload:
