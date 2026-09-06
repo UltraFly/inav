@@ -73,7 +73,7 @@ Implementation stages:
 
 Build this as a separate radio artifact after the firmware settings stabilize. The script should present aircraft-oriented pages for receiver/output mapping, surface directions and limits, stabilization, Avian telemetry status, failsafe, and pre-flight validation.
 
-The first read-only UI and simulator prototype is maintained on the separate `feature/edgetx-nexus-acro` branch. It already displays discovered ESC telemetry, EdgeTX outputs, simulated surface-controller data, and raw `0x0C` TextGen received through a 4-in-1 module. Aircraft-changing controls remain disabled until matching, safety-enforced INAV MSP messages exist.
+The independent `inav-avian-esc` tool belongs to the later `feature/avian-esc-textgen` branch. It is not part of the throttle-only telemetry merge-request scope. Aircraft-changing controls remain disabled until matching, safety-enforced INAV MSP messages exist.
 
 Support the two EdgeTX topologies without confusing their transports:
 
