@@ -48,6 +48,8 @@ Implementation stages:
 6. Restore normal channel forwarding deterministically on exit, timeout, malformed traffic, link loss, failsafe, or reboot.
 7. Bench-test entry, navigation, setting changes, exit, persistence after power cycle, and every abort path with the propeller removed.
 
+Current status: the host-tested display and session kernel validates TextGen payloads, bounds navigation pulses, forces safe throttle, and releases overrides on every modeled abort path. Session entry and continued operation require disarm, low throttle, a healthy link, no failsafe, and an explicit normal/non-reverse thrust-reverse switch state. The `inav-avian-esc` confirmation screen presents the same checklist. A shared SRXL2 decoder now validates telemetry envelopes and exposes sensor `0x0C` payloads without coupling TextGen to sensor `0x20`; live UART dispatch, MSP session messages, and hardware-validated navigation polarity remain to be implemented.
+
 ## 4. Surface-deflection stabilization
 
 Add a separate, opt-in fixed-wing controller in which pilot stick position commands the baseline normalized control-surface deflection. Do not convert stick position into an angular-rate setpoint. Add filtered gyro feedback only as a bounded disturbance-compensation term, then pass the combined command through the existing mixer and servo limits. Keep the existing PIFF/rate controller unchanged.

@@ -33,6 +33,7 @@
 #define SRXL2_ESC_MAX_CHANNELS                32
 #define SRXL2_ESC_CONTROL_FRAME_MAX_SIZE     (SRXL2_ESC_CONTROL_FRAME_BASE_SIZE + 2 * SRXL2_ESC_MAX_CHANNELS)
 #define SRXL2_ESC_TELEMETRY_FRAME_SIZE       22
+#define SRXL2_ESC_TELEMETRY_PAYLOAD_SIZE     16
 
 #define SRXL2_ESC_DEVICE_ID_DEFAULT    0x40
 #define SRXL2_ESC_DEVICE_ID_BROADCAST  0xFF
@@ -59,6 +60,11 @@ typedef enum {
     SRXL2_ESC_TELEMETRY_THROTTLE_VALID     = (1 << 7),
     SRXL2_ESC_TELEMETRY_POWER_OUT_VALID    = (1 << 8),
 } srxl2EscTelemetryValidity_e;
+
+typedef struct srxl2EscTelemetryFrame_s {
+    uint8_t destinationDeviceId;
+    uint8_t payload[SRXL2_ESC_TELEMETRY_PAYLOAD_SIZE];
+} srxl2EscTelemetryFrame_t;
 
 typedef struct srxl2EscTelemetry_s {
     uint16_t valid;
@@ -107,6 +113,8 @@ bool srxl2EscDecodeHandshake(const uint8_t *frame, size_t length, srxl2EscHandsh
 size_t srxl2EscBuildControlFrame(uint8_t *frame, size_t capacity, uint8_t replyDeviceId,
     int8_t rssi, uint16_t frameLosses, const srxl2EscChannel_t *channels, size_t channelCount, bool failsafe);
 
+bool srxl2EscDecodeTelemetryFrame(const uint8_t *frame, size_t length,
+    srxl2EscTelemetryFrame_t *telemetryFrame);
 srxl2EscDecodeResult_e srxl2EscDecodeTelemetry(const uint8_t *frame, size_t length, srxl2EscTelemetry_t *telemetry);
 
 // Updates only the standard INAV ESC fields present in telemetry and returns their validity mask.

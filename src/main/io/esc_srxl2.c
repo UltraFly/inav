@@ -182,69 +182,87 @@ size_t srxl2EscBuildControlFrame(uint8_t *frame, size_t capacity, uint8_t replyD
     return sbufPtr(dst) - frame;
 }
 
-srxl2EscDecodeResult_e srxl2EscDecodeTelemetry(const uint8_t *frame, size_t length, srxl2EscTelemetry_t *telemetry)
+bool srxl2EscDecodeTelemetryFrame(const uint8_t *frame, size_t length,
+    srxl2EscTelemetryFrame_t *telemetryFrame)
 {
-    if (!frame || !telemetry || length != SRXL2_ESC_TELEMETRY_FRAME_SIZE ||
+    if (!frame || !telemetryFrame || length != SRXL2_ESC_TELEMETRY_FRAME_SIZE ||
         frame[0] != SRXL2_ID || frame[1] != SRXL2_PACKET_TYPE_TELEMETRY || frame[2] != length ||
         crc16_ccitt_update(0, frame, length) != 0) {
+        return false;
+    }
+
+    telemetryFrame->destinationDeviceId = frame[3];
+    memcpy(telemetryFrame->payload, &frame[4], sizeof(telemetryFrame->payload));
+    return true;
+}
+
+srxl2EscDecodeResult_e srxl2EscDecodeTelemetry(const uint8_t *frame, size_t length, srxl2EscTelemetry_t *telemetry)
+{
+    if (!telemetry) {
         return SRXL2_ESC_DECODE_INVALID;
     }
 
-    if (frame[4] != SPEKTRUM_TELEMETRY_DEVICE_ESC) {
+    srxl2EscTelemetryFrame_t telemetryFrame;
+    if (!srxl2EscDecodeTelemetryFrame(frame, length, &telemetryFrame)) {
+        return SRXL2_ESC_DECODE_INVALID;
+    }
+
+    const uint8_t *payload = telemetryFrame.payload;
+    if (payload[0] != SPEKTRUM_TELEMETRY_DEVICE_ESC) {
         return SRXL2_ESC_DECODE_NOT_ESC_TELEMETRY;
     }
 
     memset(telemetry, 0, sizeof(*telemetry));
-    telemetry->destinationDeviceId = frame[3];
-    telemetry->secondaryId = frame[5];
+    telemetry->destinationDeviceId = telemetryFrame.destinationDeviceId;
+    telemetry->secondaryId = payload[1];
 
-    const uint16_t rpm = readU16BigEndian(&frame[6]);
+    const uint16_t rpm = readU16BigEndian(&payload[2]);
     if (rpm != SPEKTRUM_TELEMETRY_NO_DATA_16) {
         telemetry->electricalRpm = (uint32_t)rpm * 10;
         telemetry->valid |= SRXL2_ESC_TELEMETRY_ERPM_VALID;
     }
 
-    const uint16_t voltage = readU16BigEndian(&frame[8]);
+    const uint16_t voltage = readU16BigEndian(&payload[4]);
     if (voltage != SPEKTRUM_TELEMETRY_NO_DATA_16) {
         telemetry->voltageCentiVolts = voltage;
         telemetry->valid |= SRXL2_ESC_TELEMETRY_VOLTAGE_VALID;
     }
 
-    const uint16_t fetTemperature = readU16BigEndian(&frame[10]);
+    const uint16_t fetTemperature = readU16BigEndian(&payload[6]);
     if (fetTemperature != SPEKTRUM_TELEMETRY_NO_DATA_16) {
         telemetry->fetTemperatureDeciCelsius = fetTemperature;
         telemetry->valid |= SRXL2_ESC_TELEMETRY_FET_TEMP_VALID;
     }
 
-    const uint16_t current = readU16BigEndian(&frame[12]);
+    const uint16_t current = readU16BigEndian(&payload[8]);
     if (current != SPEKTRUM_TELEMETRY_NO_DATA_16) {
         telemetry->currentCentiAmps = current;
         telemetry->valid |= SRXL2_ESC_TELEMETRY_CURRENT_VALID;
     }
 
-    const uint16_t becTemperature = readU16BigEndian(&frame[14]);
+    const uint16_t becTemperature = readU16BigEndian(&payload[10]);
     if (becTemperature != SPEKTRUM_TELEMETRY_NO_DATA_16) {
         telemetry->becTemperatureDeciCelsius = becTemperature;
         telemetry->valid |= SRXL2_ESC_TELEMETRY_BEC_TEMP_VALID;
     }
 
-    if (frame[16] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
-        telemetry->becCurrentDeciAmps = frame[16];
+    if (payload[12] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
+        telemetry->becCurrentDeciAmps = payload[12];
         telemetry->valid |= SRXL2_ESC_TELEMETRY_BEC_CURRENT_VALID;
     }
 
-    if (frame[17] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
-        telemetry->becVoltageCentiVolts = frame[17] * 5;
+    if (payload[13] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
+        telemetry->becVoltageCentiVolts = payload[13] * 5;
         telemetry->valid |= SRXL2_ESC_TELEMETRY_BEC_VOLTAGE_VALID;
     }
 
-    if (frame[18] <= SPEKTRUM_ESC_THROTTLE_MAX) {
-        telemetry->throttleHalfPercent = frame[18];
+    if (payload[14] <= SPEKTRUM_ESC_THROTTLE_MAX) {
+        telemetry->throttleHalfPercent = payload[14];
         telemetry->valid |= SRXL2_ESC_TELEMETRY_THROTTLE_VALID;
     }
 
-    if (frame[19] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
-        telemetry->powerOutHalfPercent = frame[19];
+    if (payload[15] != SPEKTRUM_TELEMETRY_NO_DATA_8) {
+        telemetry->powerOutHalfPercent = payload[15];
         telemetry->valid |= SRXL2_ESC_TELEMETRY_POWER_OUT_VALID;
     }
 

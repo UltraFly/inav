@@ -21,7 +21,7 @@ Shared Avian transport fixes are made here first. The TextGen branch must then b
 
 ## Scope
 
-`io/esc_srxl2.c` owns packet encoding, packet validation, ESC telemetry decoding, and conversion of common values into INAV ESC sensor units.
+`io/esc_srxl2.c` owns packet encoding, generic telemetry-envelope validation, ESC telemetry decoding, and conversion of common values into INAV ESC sensor units. The generic envelope exposes the validated 16-byte sensor payload so independent consumers such as ESC sensor `0x20` and TextGen sensor `0x0C` share the same length and CRC gate.
 
 `io/esc_srxl2_bus.c` owns the transport-independent safety states. It does not configure pins, start a timer, open a UART, or schedule tasks. A future hardware adapter will perform those operations and will use this state machine to decide when serial transmission is permitted.
 
@@ -103,7 +103,7 @@ The control scheduler tests additionally cover:
 - unsafe or malformed programming requests falling back to failsafe;
 - stale-input and cadence behavior across a 32-bit microsecond clock wrap.
 
-The packet codec separately covers multi-channel ordering, the complete 32-channel mask, preservation of the human `CH9` thrust-reverse assignment as protocol channel index `8`, PWM range conversion, failsafe reply suppression, malformed ESC telemetry, unavailable fields, field ranges, electrical-to-mechanical RPM conversion, and INAV unit conversion.
+The packet codec separately covers multi-channel ordering, the complete 32-channel mask, preservation of the human `CH9` thrust-reverse assignment as protocol channel index `8`, PWM range conversion, failsafe reply suppression, generic telemetry-envelope validation and payload extraction, malformed ESC telemetry, unavailable fields, field ranges, electrical-to-mechanical RPM conversion, and INAV unit conversion.
 
 ## Hardware-deferred validation
 

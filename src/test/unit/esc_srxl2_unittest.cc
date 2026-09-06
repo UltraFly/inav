@@ -120,6 +120,42 @@ TEST(Srxl2EscTest, RejectsUndersizedControlBuffer)
         channels, sizeof(channels) / sizeof(channels[0]), false));
 }
 
+TEST(Srxl2EscTest, DecodesGenericTelemetryEnvelopeForTextGen)
+{
+    uint8_t frame[SRXL2_ESC_TELEMETRY_FRAME_SIZE] = {
+        0xA6, 0x80, SRXL2_ESC_TELEMETRY_FRAME_SIZE, 0x31,
+        0x0C, 0x02, 0x01, 'B', 'R', 'A', 'K', 'E', ' ', 'T', 'Y', 'P', 'E', 0, 0, 0, 0, 0,
+    };
+    updateFrameCrc(frame, sizeof(frame));
+    srxl2EscTelemetryFrame_t telemetryFrame;
+
+    ASSERT_TRUE(srxl2EscDecodeTelemetryFrame(frame, sizeof(frame), &telemetryFrame));
+    EXPECT_EQ(0x31, telemetryFrame.destinationDeviceId);
+    EXPECT_EQ(0x0C, telemetryFrame.payload[0]);
+    EXPECT_EQ(0x02, telemetryFrame.payload[1]);
+    EXPECT_EQ(0x01, telemetryFrame.payload[2]);
+    EXPECT_EQ(0, memcmp(&frame[4], telemetryFrame.payload, sizeof(telemetryFrame.payload)));
+}
+
+TEST(Srxl2EscTest, RejectsMalformedGenericTelemetryEnvelope)
+{
+    uint8_t frame[SRXL2_ESC_TELEMETRY_FRAME_SIZE] = {
+        0xA6, 0x80, SRXL2_ESC_TELEMETRY_FRAME_SIZE, 0x31, 0x0C,
+    };
+    updateFrameCrc(frame, sizeof(frame));
+    srxl2EscTelemetryFrame_t telemetryFrame;
+
+    EXPECT_FALSE(srxl2EscDecodeTelemetryFrame(frame, sizeof(frame) - 1, &telemetryFrame));
+    frame[1] = 0xCD;
+    updateFrameCrc(frame, sizeof(frame));
+    EXPECT_FALSE(srxl2EscDecodeTelemetryFrame(frame, sizeof(frame), &telemetryFrame));
+    frame[1] = 0x80;
+    updateFrameCrc(frame, sizeof(frame));
+    frame[8] ^= 1;
+    EXPECT_FALSE(srxl2EscDecodeTelemetryFrame(frame, sizeof(frame), &telemetryFrame));
+    EXPECT_FALSE(srxl2EscDecodeTelemetryFrame(frame, sizeof(frame), NULL));
+}
+
 TEST(Srxl2EscTest, DecodesEscTelemetryAndUnits)
 {
     const uint8_t frame[] = {
