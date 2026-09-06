@@ -19,6 +19,7 @@ static escTextGenSafety_t safeConditions()
 {
     escTextGenSafety_t safety = {};
     safety.throttleLow = true;
+    safety.thrustReverseNormal = true;
     safety.linkAvailable = true;
     return safety;
 }
@@ -191,6 +192,11 @@ TEST(EscTextGenSessionTest, RequiresDisarmLowThrottleHealthyLinkAndNoFailsafe)
     EXPECT_EQ(ESC_TEXTGEN_SESSION_STOP_THROTTLE_NOT_LOW, session.stopReason);
 
     safety = safeConditions();
+    safety.thrustReverseNormal = false;
+    EXPECT_FALSE(escTextGenSessionEnter(&session, 0, &safety));
+    EXPECT_EQ(ESC_TEXTGEN_SESSION_STOP_THRUST_REVERSE_ACTIVE, session.stopReason);
+
+    safety = safeConditions();
     safety.failsafe = true;
     EXPECT_FALSE(escTextGenSessionEnter(&session, 0, &safety));
     EXPECT_EQ(ESC_TEXTGEN_SESSION_STOP_FAILSAFE, session.stopReason);
@@ -267,7 +273,7 @@ TEST(EscTextGenSessionTest, SafetyChangesAbortAndReleaseOverrides)
     EXPECT_FALSE(escTextGenSessionGetChannelOverride(&session, 1).active);
 }
 
-TEST(EscTextGenSessionTest, FailsafeLinkLossAndRaisedThrottleAbort)
+TEST(EscTextGenSessionTest, FailsafeLinkLossRaisedThrottleAndReverseAbort)
 {
     escTextGenSession_t session;
     escTextGenSafety_t safety = safeConditions();
@@ -289,6 +295,12 @@ TEST(EscTextGenSessionTest, FailsafeLinkLossAndRaisedThrottleAbort)
     safety.throttleLow = false;
     escTextGenSessionUpdate(&session, 5, &safety);
     EXPECT_EQ(ESC_TEXTGEN_SESSION_STOP_THROTTLE_NOT_LOW, session.stopReason);
+
+    safety = safeConditions();
+    ASSERT_TRUE(escTextGenSessionEnter(&session, 6, &safety));
+    safety.thrustReverseNormal = false;
+    escTextGenSessionUpdate(&session, 7, &safety);
+    EXPECT_EQ(ESC_TEXTGEN_SESSION_STOP_THRUST_REVERSE_ACTIVE, session.stopReason);
 }
 
 TEST(EscTextGenSessionTest, ActivityExtendsTimeout)

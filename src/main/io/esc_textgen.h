@@ -78,6 +78,7 @@ typedef enum {
     ESC_TEXTGEN_SESSION_STOP_USER,
     ESC_TEXTGEN_SESSION_STOP_ARMED,
     ESC_TEXTGEN_SESSION_STOP_THROTTLE_NOT_LOW,
+    ESC_TEXTGEN_SESSION_STOP_THRUST_REVERSE_ACTIVE,
     ESC_TEXTGEN_SESSION_STOP_FAILSAFE,
     ESC_TEXTGEN_SESSION_STOP_LINK_LOST,
     ESC_TEXTGEN_SESSION_STOP_TIMEOUT,
@@ -87,6 +88,7 @@ typedef enum {
 typedef struct escTextGenSafety_s {
     bool armed;
     bool throttleLow;
+    bool thrustReverseNormal;
     bool failsafe;
     bool linkAvailable;
 } escTextGenSafety_t;

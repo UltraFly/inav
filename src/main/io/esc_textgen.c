@@ -139,6 +139,9 @@ static escTextGenSessionStopReason_e getSafetyStopReason(const escTextGenSafety_
     if (!safety->throttleLow) {
         return ESC_TEXTGEN_SESSION_STOP_THROTTLE_NOT_LOW;
     }
+    if (!safety->thrustReverseNormal) {
+        return ESC_TEXTGEN_SESSION_STOP_THRUST_REVERSE_ACTIVE;
+    }
     if (!safety->linkAvailable) {
         return ESC_TEXTGEN_SESSION_STOP_LINK_LOST;
     }
