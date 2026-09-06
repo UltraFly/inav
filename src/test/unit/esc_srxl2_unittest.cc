@@ -29,11 +29,11 @@ static void updateFrameCrc(uint8_t *frame, size_t length)
 
 TEST(Srxl2EscTest, ConvertsPwmToSrxl2ChannelRange)
 {
-    EXPECT_EQ(0x0000, srxl2EscPwmToChannelValue(900));
-    EXPECT_EQ(0x0000, srxl2EscPwmToChannelValue(1000));
-    EXPECT_EQ(0x8000, srxl2EscPwmToChannelValue(1500));
-    EXPECT_EQ(0xFFFC, srxl2EscPwmToChannelValue(2000));
-    EXPECT_EQ(0xFFFC, srxl2EscPwmToChannelValue(2100));
+    EXPECT_EQ(SRXL2_ESC_CHANNEL_MIN, srxl2EscPwmToChannelValue(900));
+    EXPECT_EQ(SRXL2_ESC_CHANNEL_MIN, srxl2EscPwmToChannelValue(1000));
+    EXPECT_EQ(SRXL2_ESC_CHANNEL_CENTER, srxl2EscPwmToChannelValue(1500));
+    EXPECT_EQ(SRXL2_ESC_CHANNEL_MAX, srxl2EscPwmToChannelValue(2000));
+    EXPECT_EQ(SRXL2_ESC_CHANNEL_MAX, srxl2EscPwmToChannelValue(2100));
 }
 
 TEST(Srxl2EscTest, BuildsHandshakeAtDefaultBaud)

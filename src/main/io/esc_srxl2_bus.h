@@ -33,8 +33,8 @@
 #define SRXL2_ESC_BUS_STARTUP_GUARD_MS      200
 #define SRXL2_ESC_BUS_HANDSHAKE_RETRY_MS     50
 
-#define SRXL2_ESC_BUS_BAUD_DEFAULT       115200
-#define SRXL2_ESC_BUS_BAUD_HIGH          400000
+#define SRXL2_ESC_BUS_BAUD               115200
+#define SRXL2_ESC_BUS_MASTER_DEVICE_ID     0x21
 
 typedef enum {
     SRXL2_ESC_BUS_DISABLED,
@@ -58,14 +58,12 @@ typedef struct srxl2EscBus_s {
     uint8_t escDeviceId;
     uint8_t priority;
     uint8_t info;
-    bool supportsHighBaud;
-    bool escSupportsHighBaud;
     bool srxl2Detected;
     bool hasTelemetry;
 } srxl2EscBus_t;
 
-void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t sourceDeviceId,
-    uint8_t priority, bool supportsHighBaud, uint8_t info, uint32_t uid);
+void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t priority,
+    uint8_t info, uint32_t uid);
 void srxl2EscBusDisable(srxl2EscBus_t *bus);
 // The caller must release PWM and put the shared signal pin in receive mode before restarting discovery.
 void srxl2EscBusRestartDiscovery(srxl2EscBus_t *bus, uint32_t nowMs);

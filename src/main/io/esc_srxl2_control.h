@@ -17,6 +17,7 @@
 #define SRXL2_ESC_CONTROL_PERIOD_US                 11000U
 #define SRXL2_ESC_CONTROL_INPUT_TIMEOUT_US          100000U
 #define SRXL2_ESC_CONTROL_SAFE_THROTTLE_US            1000U
+#define SRXL2_ESC_TELEMETRY_REQUEST_INTERVAL_FRAMES      10U
 
 typedef struct srxl2EscControlSafety_s {
     bool armed;
@@ -33,6 +34,7 @@ typedef struct srxl2EscControlScheduler_s {
     int8_t rssi;
     uint16_t frameLosses;
     uint8_t throttleChannel;
+    uint8_t telemetryRequestCountdown;
     bool throttleValid;
     bool failsafeThrottleValid;
 } srxl2EscControlScheduler_t;

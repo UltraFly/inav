@@ -104,10 +104,14 @@ size_t srxl2EscControlSchedulerBuildFrame(srxl2EscControlScheduler_t *scheduler,
         throttle.pulseUs = SRXL2_ESC_CONTROL_SAFE_THROTTLE_US;
     }
 
+    const bool requestTelemetry = !useFailsafe && scheduler->telemetryRequestCountdown == 0;
     const size_t length = srxl2EscBusBuildControlFrame(bus, frame, capacity,
-        useFailsafe ? 0 : bus->escDeviceId, scheduler->rssi, scheduler->frameLosses,
+        requestTelemetry ? bus->escDeviceId : 0, scheduler->rssi, scheduler->frameLosses,
         &throttle, 1, useFailsafe);
     if (length) {
+        scheduler->telemetryRequestCountdown = scheduler->telemetryRequestCountdown == 0 ?
+            (uint8_t)(SRXL2_ESC_TELEMETRY_REQUEST_INTERVAL_FRAMES - 1U) :
+            (uint8_t)(scheduler->telemetryRequestCountdown - 1U);
         advanceControlFrameSchedule(scheduler, nowUs);
     }
 

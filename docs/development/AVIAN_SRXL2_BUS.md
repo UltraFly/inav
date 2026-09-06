@@ -37,14 +37,16 @@ The bus layer currently supports one directly connected ESC in the `0x40` device
 | `LISTEN_GUARD` | Listen at 115200 8N1. The shared signal pin must remain undriven. |
 | `SEND_DIRECTED_HANDSHAKE` | A CRC-valid ESC handshake has identified SRXL2, so a directed handshake may be sent. |
 | `WAIT_HANDSHAKE_REPLY` | Listen for the matching ESC reply. Retry the directed handshake no faster than every 50 ms. |
-| `SEND_FINAL_HANDSHAKE` | Send the broadcast handshake containing the baud rate supported by both endpoints. |
+| `SEND_FINAL_HANDSHAKE` | Send the broadcast handshake while continuing to advertise 115200-only operation. |
 | `WAIT_FINAL_TX_COMPLETE` | Keep the UART at 115200 until the final byte has physically left the UART. |
-| `RUNNING` | Control frames are permitted at the negotiated baud. |
+| `RUNNING` | Control frames are permitted at 115200 baud. |
 | `PWM_FALLBACK` | No SRXL2 device was detected during the 200 ms guard; serial transmission remains prohibited and the hardware adapter may select PWM. |
 
 A valid unprompted ESC handshake completes the listen-before-transmit guard early. Random UART traffic, a bad CRC, or a handshake from a non-ESC device cannot unlock transmission. If no valid ESC handshake arrives within 200 ms, the state machine returns no frame and selects `PWM_FALLBACK`; it never probes the shared pin by transmitting.
 
-An ESC unprompted handshake received while running is treated as a probable ESC brownout. Control output is blocked immediately, the negotiated baud returns to 115200, telemetry becomes stale, and discovery restarts with a directed handshake.
+The FC uses SRXL2 receiver/master device ID `0x21`. It advertises no high-baud capability in both handshake responses and never switches away from 115200. A 400000-baud transition is unsupported and must be treated by the future hardware adapter as a link/configuration failure, not as an alternate operating mode or recovery path.
+
+An ESC unprompted handshake received while running is treated as a probable ESC brownout. Control output is blocked immediately, telemetry becomes stale, and discovery restarts with a directed handshake at 115200.
 
 ## Hardware adapter contract
 
@@ -56,13 +58,14 @@ The adapter must obey all of the following rules:
 2. Do not enable PWM or UART transmission while `LISTEN_GUARD` is active.
 3. On `PWM_FALLBACK`, close or release the UART before assigning the timer resource and producing a defined safe PWM throttle value.
 4. Once a valid ESC handshake selects SRXL2, never assign the same pin to the timer until the bus has been disabled and a deliberate fallback transition has completed.
-5. Call `srxl2EscBusOnFrameTransmitted()` only after UART transmission-complete, not merely after filling the transmit register or DMA buffer. This prevents switching to 400000 baud before the final 115200-baud handshake is complete.
+5. Call `srxl2EscBusOnFrameTransmitted()` only after UART transmission-complete, not merely after filling the transmit register or DMA buffer. The bus must remain at 115200 after that final handshake.
 6. Send scheduled channel frames only through `srxl2EscControlSchedulerBuildFrame()`. It delegates final bus-state gating to `srxl2EscBusBuildControlFrame()`, so neither layer permits control transmission outside `RUNNING`.
 7. Feed the scheduler only the configured throttle channel. Do not forward aileron, elevator, thrust reverse, or other AUX channels in the telemetry feature.
 8. Configure a safe throttle failsafe before enabling control transmission. The scheduler forces minimum throttle during disarm, failsafe, and stale input, and refuses to transmit a failsafe frame until that value is defined.
-9. Use a zero reply ID in failsafe frames. The codec enforces this even if a caller supplies an ESC reply ID.
-10. Mark telemetry fresh only after complete length and CRC validation. Expired data must not be published as current ESC sensor data.
-11. Allow `srxl2EscBusRestartDiscovery()` from PWM fallback only after the aircraft is disarmed, throttle is at minimum, PWM has stopped, and the pin is back in receive mode.
+9. Request ESC telemetry only in every tenth successfully built control frame. Use a zero reply ID in the other nine frames and in every failsafe frame; the codec also enforces reply suppression for failsafe.
+10. Encode the normal 1000--2000 microsecond channel range into `0x2AA0`--`0xD554`, preserving `0x8000` as center and clearing the two reserved low bits. Do not emit raw zero as minimum throttle.
+11. Mark telemetry fresh only after complete length and CRC validation. Expired data must not be published as current ESC sensor data.
+12. Allow `srxl2EscBusRestartDiscovery()` from PWM fallback only after the aircraft is disarmed, throttle is at minimum, PWM has stopped, and the pin is back in receive mode.
 
 The UART must use half-duplex single-wire behavior and leave the bus undriven while idle. Turnaround timing and the two-character inter-packet idle requirement still need to be implemented and verified in the hardware adapter.
 
@@ -73,7 +76,7 @@ Native unit tests cover:
 - silence for the entire startup guard and PWM fallback without a transmitted probe;
 - CRC-invalid, wrong-device, and wrong-destination handshakes;
 - directed and broadcast handshake contents;
-- 115200/400000 negotiation and delayed baud switching;
+- fixed master device ID `0x21`, 115200-only advertisement, and no high-baud transition even when the ESC advertises high-baud capability;
 - handshake retry timing;
 - control-frame gating before and after discovery;
 - an ESC brownout handshake while running;
@@ -86,6 +89,7 @@ The control scheduler tests additionally cover:
 - immediate first output followed by an 11 ms cadence without catch-up bursts;
 - bus-state gating and deterministic timing reset;
 - a one-bit channel mask containing only the configured throttle channel;
+- one telemetry request every tenth control frame, with zero reply ID between requests;
 - safe throttle during disarm, stale input, and explicit failsafe;
 - safe-throttle failsafe enforcement and telemetry-reply suppression;
 - stale-input and cadence behavior across a 32-bit microsecond clock wrap.
@@ -99,7 +103,9 @@ Do not consider the transport flight-ready until all of these have been demonstr
 - PA9 electrical idle level and half-duplex direction changes on an oscilloscope or logic analyzer;
 - no edge or pulse emitted during the 200 ms guard with a PWM-only ESC attached;
 - correct fallback to a safe PWM value for a non-SRXL2 ESC;
-- Avian handshake at 115200 and, where supported, the transition to 400000;
+- Avian handshake and continuous operation at 115200, including confirmation that the ESC never attempts a 400000-baud transition;
+- `0x2AA0` safe idle, `0x8000` center, and `0xD554` full travel compared with a known-working Spektrum receiver trace;
+- one sensor `0x20` reply request every tenth control frame;
 - control cadence, two-character turnaround gaps, telemetry reply timing, and collision-free recovery;
 - ESC late power-up and ESC brownout recovery;
 - disarm, receiver failsafe, FC reboot, and malformed traffic;
@@ -112,3 +118,5 @@ Record the NEXUS hardware revision, INAV commit, ESC model and firmware, negotia
 - [Spektrum SRXL2 protocol, Rev K specification, and public reference implementation](https://github.com/SpektrumRC/SRXL2)
 - [Spektrum ESC telemetry structure](https://github.com/SpektrumRC/SpektrumDocumentation/blob/master/Telemetry/spektrumTelemetrySensors.h)
 - [NEXUS-X target documentation](https://github.com/iNavFlight/inav/blob/master/docs/boards/NEXUSX.md)
+- [RobertoD91's INAV SRXL2 ESC proof of concept](https://github.com/RobertoD91/inav/tree/claude/esc-spektrum-protocol-check-i5b6jx) — source of the candidate `0x21`, 115200-only, normal-travel channel endpoints, and 1-in-10 polling behavior; all remain **NEEDS VERIFYING** on this project's hardware
+- [MSRC issue #152: Adding Spektrum Avian Smart ESC Telemetry](https://github.com/dgatf/msrc/issues/152) — third-party bench history and interoperability evidence; **NEEDS VERIFYING**

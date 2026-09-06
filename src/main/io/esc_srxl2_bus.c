@@ -37,8 +37,8 @@ static bool isEscDeviceId(uint8_t deviceId)
     return (deviceId & 0xF0) == SRXL2_ESC_DEVICE_ID_DEFAULT;
 }
 
-void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t sourceDeviceId,
-    uint8_t priority, bool supportsHighBaud, uint8_t info, uint32_t uid)
+void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t priority,
+    uint8_t info, uint32_t uid)
 {
     if (!bus) {
         return;
@@ -48,11 +48,10 @@ void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t sourceDeviceId,
     bus->state = SRXL2_ESC_BUS_LISTEN_GUARD;
     bus->stateStartedAtMs = nowMs;
     bus->uid = uid;
-    bus->baudRate = SRXL2_ESC_BUS_BAUD_DEFAULT;
-    bus->sourceDeviceId = sourceDeviceId;
+    bus->baudRate = SRXL2_ESC_BUS_BAUD;
+    bus->sourceDeviceId = SRXL2_ESC_BUS_MASTER_DEVICE_ID;
     bus->priority = priority;
     bus->info = info;
-    bus->supportsHighBaud = supportsHighBaud;
 }
 
 void srxl2EscBusDisable(srxl2EscBus_t *bus)
@@ -73,9 +72,8 @@ void srxl2EscBusRestartDiscovery(srxl2EscBus_t *bus, uint32_t nowMs)
     bus->stateStartedAtMs = nowMs;
     bus->lastHandshakeTxAtMs = 0;
     bus->lastTelemetryAtMs = 0;
-    bus->baudRate = SRXL2_ESC_BUS_BAUD_DEFAULT;
+    bus->baudRate = SRXL2_ESC_BUS_BAUD;
     bus->escDeviceId = 0;
-    bus->escSupportsHighBaud = false;
     bus->srxl2Detected = false;
     bus->hasTelemetry = false;
 }
@@ -94,8 +92,7 @@ bool srxl2EscBusProcessFrame(srxl2EscBus_t *bus, const uint8_t *frame, size_t le
     if (handshake.destinationDeviceId == 0) {
         bus->srxl2Detected = true;
         bus->escDeviceId = handshake.sourceDeviceId;
-        bus->escSupportsHighBaud = handshake.supportsHighBaud;
-        bus->baudRate = SRXL2_ESC_BUS_BAUD_DEFAULT;
+        bus->baudRate = SRXL2_ESC_BUS_BAUD;
         bus->state = SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE;
         bus->stateStartedAtMs = nowMs;
         bus->hasTelemetry = false;
@@ -106,7 +103,6 @@ bool srxl2EscBusProcessFrame(srxl2EscBus_t *bus, const uint8_t *frame, size_t le
         handshake.sourceDeviceId == bus->escDeviceId &&
         (bus->state == SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE ||
             bus->state == SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY)) {
-        bus->escSupportsHighBaud = handshake.supportsHighBaud;
         bus->state = SRXL2_ESC_BUS_SEND_FINAL_HANDSHAKE;
         bus->stateStartedAtMs = nowMs;
         return true;
@@ -137,7 +133,7 @@ size_t srxl2EscBusBuildPendingFrame(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t 
 
     if (bus->state == SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE) {
         const size_t length = srxl2EscBuildHandshake(frame, capacity, bus->sourceDeviceId,
-            bus->escDeviceId, bus->priority, bus->supportsHighBaud, bus->info, bus->uid);
+            bus->escDeviceId, bus->priority, false, bus->info, bus->uid);
         if (length) {
             bus->lastHandshakeTxAtMs = nowMs;
             bus->state = SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY;
@@ -147,9 +143,8 @@ size_t srxl2EscBusBuildPendingFrame(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t 
     }
 
     if (bus->state == SRXL2_ESC_BUS_SEND_FINAL_HANDSHAKE) {
-        const bool useHighBaud = bus->supportsHighBaud && bus->escSupportsHighBaud;
         const size_t length = srxl2EscBuildHandshake(frame, capacity, bus->sourceDeviceId,
-            SRXL2_ESC_DEVICE_ID_BROADCAST, bus->priority, useHighBaud, bus->info, bus->uid);
+            SRXL2_ESC_DEVICE_ID_BROADCAST, bus->priority, false, bus->info, bus->uid);
         if (length) {
             bus->state = SRXL2_ESC_BUS_WAIT_FINAL_TX_COMPLETE;
             bus->stateStartedAtMs = nowMs;
@@ -166,8 +161,7 @@ void srxl2EscBusOnFrameTransmitted(srxl2EscBus_t *bus, uint32_t nowMs)
         return;
     }
 
-    bus->baudRate = bus->supportsHighBaud && bus->escSupportsHighBaud ?
-        SRXL2_ESC_BUS_BAUD_HIGH : SRXL2_ESC_BUS_BAUD_DEFAULT;
+    bus->baudRate = SRXL2_ESC_BUS_BAUD;
     bus->state = SRXL2_ESC_BUS_RUNNING;
     bus->stateStartedAtMs = nowMs;
     bus->hasTelemetry = false;

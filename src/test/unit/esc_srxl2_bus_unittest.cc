@@ -15,13 +15,12 @@ extern "C" {
 
 #include "gtest/gtest.h"
 
-static const uint8_t FC_DEVICE_ID = 0x31;
 static const uint8_t ESC_DEVICE_ID = 0x40;
 static const uint32_t FC_UID = 0x12345678;
 
-static void initBus(srxl2EscBus_t *bus, uint32_t nowMs = 0, bool supportsHighBaud = true)
+static void initBus(srxl2EscBus_t *bus, uint32_t nowMs = 0)
 {
-    srxl2EscBusInit(bus, nowMs, FC_DEVICE_ID, 10, supportsHighBaud, 0, FC_UID);
+    srxl2EscBusInit(bus, nowMs, 10, 0, FC_UID);
 }
 
 static size_t buildEscHandshake(uint8_t *frame, uint8_t destinationDeviceId, bool supportsHighBaud = true,
@@ -40,7 +39,7 @@ static void advanceBusToFinalHandshake(srxl2EscBus_t *bus, uint32_t nowMs, bool 
     ASSERT_TRUE(srxl2EscBusProcessFrame(bus, input, sizeof(input), nowMs));
     ASSERT_EQ(sizeof(output), srxl2EscBusBuildPendingFrame(bus, nowMs, output, sizeof(output)));
 
-    ASSERT_EQ(sizeof(input), buildEscHandshake(input, FC_DEVICE_ID, escSupportsHighBaud));
+    ASSERT_EQ(sizeof(input), buildEscHandshake(input, SRXL2_ESC_BUS_MASTER_DEVICE_ID, escSupportsHighBaud));
     ASSERT_TRUE(srxl2EscBusProcessFrame(bus, input, sizeof(input), nowMs + 1));
 }
 
@@ -63,7 +62,7 @@ TEST(Srxl2EscBusTest, SharedPwmPinRemainsSilentDuringStartupGuard)
     EXPECT_EQ((size_t)0, srxl2EscBusBuildPendingFrame(&bus, 1199, frame, sizeof(frame)));
     EXPECT_EQ(SRXL2_ESC_BUS_LISTEN_GUARD, bus.state);
     EXPECT_FALSE(srxl2EscBusCanSendControl(&bus));
-    EXPECT_EQ(SRXL2_ESC_BUS_BAUD_DEFAULT, srxl2EscBusGetBaudRate(&bus));
+    EXPECT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
 }
 
 TEST(Srxl2EscBusTest, MissingHandshakeSelectsPwmWithoutSerialTransmission)
@@ -77,7 +76,7 @@ TEST(Srxl2EscBusTest, MissingHandshakeSelectsPwmWithoutSerialTransmission)
     EXPECT_FALSE(srxl2EscBusCanSendControl(&bus));
 }
 
-TEST(Srxl2EscBusTest, ValidEscHandshakeCompletesGuardAndNegotiatesHighBaud)
+TEST(Srxl2EscBusTest, ValidEscHandshakeUsesReceiverIdAndStaysAt115200)
 {
     srxl2EscBus_t bus;
     uint8_t input[SRXL2_ESC_HANDSHAKE_FRAME_SIZE];
@@ -89,35 +88,35 @@ TEST(Srxl2EscBusTest, ValidEscHandshakeCompletesGuardAndNegotiatesHighBaud)
     ASSERT_TRUE(srxl2EscBusProcessFrame(&bus, input, sizeof(input), 20));
     ASSERT_EQ(sizeof(output), srxl2EscBusBuildPendingFrame(&bus, 20, output, sizeof(output)));
     ASSERT_TRUE(srxl2EscDecodeHandshake(output, sizeof(output), &decoded));
-    EXPECT_EQ(FC_DEVICE_ID, decoded.sourceDeviceId);
+    EXPECT_EQ(SRXL2_ESC_BUS_MASTER_DEVICE_ID, decoded.sourceDeviceId);
     EXPECT_EQ(ESC_DEVICE_ID, decoded.destinationDeviceId);
-    EXPECT_TRUE(decoded.supportsHighBaud);
+    EXPECT_FALSE(decoded.supportsHighBaud);
     EXPECT_EQ(SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY, bus.state);
 
-    ASSERT_EQ(sizeof(input), buildEscHandshake(input, FC_DEVICE_ID));
+    ASSERT_EQ(sizeof(input), buildEscHandshake(input, SRXL2_ESC_BUS_MASTER_DEVICE_ID));
     ASSERT_TRUE(srxl2EscBusProcessFrame(&bus, input, sizeof(input), 21));
     ASSERT_EQ(sizeof(output), srxl2EscBusBuildPendingFrame(&bus, 21, output, sizeof(output)));
     ASSERT_TRUE(srxl2EscDecodeHandshake(output, sizeof(output), &decoded));
     EXPECT_EQ(SRXL2_ESC_DEVICE_ID_BROADCAST, decoded.destinationDeviceId);
-    EXPECT_TRUE(decoded.supportsHighBaud);
+    EXPECT_FALSE(decoded.supportsHighBaud);
     EXPECT_EQ(SRXL2_ESC_BUS_WAIT_FINAL_TX_COMPLETE, bus.state);
-    EXPECT_EQ(SRXL2_ESC_BUS_BAUD_DEFAULT, srxl2EscBusGetBaudRate(&bus));
+    EXPECT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
     EXPECT_FALSE(srxl2EscBusCanSendControl(&bus));
 
     srxl2EscBusOnFrameTransmitted(&bus, 22);
     EXPECT_EQ(SRXL2_ESC_BUS_RUNNING, bus.state);
-    EXPECT_EQ(SRXL2_ESC_BUS_BAUD_HIGH, srxl2EscBusGetBaudRate(&bus));
+    EXPECT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
     EXPECT_TRUE(srxl2EscBusCanSendControl(&bus));
 }
 
-TEST(Srxl2EscBusTest, NegotiatesDefaultBaudWhenEscDoesNotSupportHighBaud)
+TEST(Srxl2EscBusTest, StaysAt115200WhenEscDoesNotAdvertiseHighBaud)
 {
     srxl2EscBus_t bus;
     initBus(&bus);
 
     advanceBusToRunning(&bus, 0, false);
 
-    EXPECT_EQ(SRXL2_ESC_BUS_BAUD_DEFAULT, srxl2EscBusGetBaudRate(&bus));
+    EXPECT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
 }
 
 TEST(Srxl2EscBusTest, InvalidOrNonEscHandshakeCannotUnlockTransmission)
@@ -185,13 +184,13 @@ TEST(Srxl2EscBusTest, EscBrownoutRestartsHandshakeAtDefaultBaud)
     uint8_t frame[SRXL2_ESC_HANDSHAKE_FRAME_SIZE];
     initBus(&bus);
     advanceBusToRunning(&bus);
-    ASSERT_EQ(SRXL2_ESC_BUS_BAUD_HIGH, srxl2EscBusGetBaudRate(&bus));
+    ASSERT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
 
     ASSERT_EQ(sizeof(frame), buildEscHandshake(frame, 0));
     ASSERT_TRUE(srxl2EscBusProcessFrame(&bus, frame, sizeof(frame), 100));
 
     EXPECT_EQ(SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE, bus.state);
-    EXPECT_EQ(SRXL2_ESC_BUS_BAUD_DEFAULT, srxl2EscBusGetBaudRate(&bus));
+    EXPECT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
     EXPECT_FALSE(srxl2EscBusCanSendControl(&bus));
 }
 
@@ -209,7 +208,7 @@ TEST(Srxl2EscBusTest, LateEscCanBeDiscoveredOnlyAfterExplicitSafeRestart)
 
     srxl2EscBusRestartDiscovery(&bus, 1000);
     EXPECT_EQ(SRXL2_ESC_BUS_LISTEN_GUARD, bus.state);
-    EXPECT_EQ(SRXL2_ESC_BUS_BAUD_DEFAULT, srxl2EscBusGetBaudRate(&bus));
+    EXPECT_EQ(SRXL2_ESC_BUS_BAUD, srxl2EscBusGetBaudRate(&bus));
     EXPECT_FALSE(srxl2EscBusCanSendControl(&bus));
     EXPECT_TRUE(srxl2EscBusProcessFrame(&bus, frame, sizeof(frame), 1100));
     EXPECT_EQ(SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE, bus.state);

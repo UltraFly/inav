@@ -37,6 +37,13 @@
 #define SRXL2_ESC_DEVICE_ID_DEFAULT    0x40
 #define SRXL2_ESC_DEVICE_ID_BROADCAST  0xFF
 
+// Observed on a working Spektrum receiver-to-Avian connection. These values
+// retain the two low SRXL2 flag bits as zero and still require hardware capture
+// verification on the direct FC-to-ESC connection.
+#define SRXL2_ESC_CHANNEL_MIN          0x2AA0
+#define SRXL2_ESC_CHANNEL_CENTER       0x8000
+#define SRXL2_ESC_CHANNEL_MAX          0xD554
+
 #define SRXL2_ESC_PWM_MIN              1000
 #define SRXL2_ESC_PWM_CENTER           1500
 #define SRXL2_ESC_PWM_MAX              2000

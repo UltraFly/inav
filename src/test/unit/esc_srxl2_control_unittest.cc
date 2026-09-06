@@ -73,6 +73,26 @@ TEST(Srxl2EscControlTest, SendsOnlyThrottleAtElevenMillisecondCadence)
         &safety, frame, sizeof(frame)));
 }
 
+TEST(Srxl2EscControlTest, RequestsTelemetryOnlyEveryTenthControlFrame)
+{
+    const srxl2EscBus_t bus = runningBus();
+    srxl2EscControlScheduler_t scheduler;
+    uint8_t frame[SRXL2_ESC_CONTROL_FRAME_MAX_SIZE];
+    srxl2EscControlSchedulerInit(&scheduler, 0, 0);
+    ASSERT_TRUE(srxl2EscControlSchedulerUpdateThrottle(&scheduler, 1500, 100, 0, 0));
+    ASSERT_TRUE(srxl2EscControlSchedulerSetFailsafeThrottle(&scheduler, 1000));
+    const srxl2EscControlSafety_t safety = normalSafety();
+
+    for (unsigned frameIndex = 0; frameIndex < 21; frameIndex++) {
+        const uint32_t nowUs = frameIndex * SRXL2_ESC_CONTROL_PERIOD_US;
+        ASSERT_TRUE(srxl2EscControlSchedulerUpdateThrottle(&scheduler, 1500, 100, 0, nowUs));
+        ASSERT_NE((size_t)0, srxl2EscControlSchedulerBuildFrame(&scheduler, &bus,
+            nowUs, &safety, frame, sizeof(frame)));
+        EXPECT_EQ((frameIndex % SRXL2_ESC_TELEMETRY_REQUEST_INTERVAL_FRAMES) == 0 ?
+            ESC_DEVICE_ID : 0, frame[4]);
+    }
+}
+
 TEST(Srxl2EscControlTest, RemainsBlockedUntilTheBusHandshakeCompletes)
 {
     srxl2EscBus_t bus = {};

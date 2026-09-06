@@ -71,11 +71,15 @@ uint16_t srxl2EscPwmToChannelValue(uint16_t pulseUs)
     uint32_t value;
 
     if (constrainedPulseUs <= SRXL2_ESC_PWM_CENTER) {
-        value = ((uint32_t)(constrainedPulseUs - SRXL2_ESC_PWM_MIN) * 0x8000) /
-            (SRXL2_ESC_PWM_CENTER - SRXL2_ESC_PWM_MIN);
+        value = SRXL2_ESC_CHANNEL_MIN +
+            ((uint32_t)(constrainedPulseUs - SRXL2_ESC_PWM_MIN) *
+                (SRXL2_ESC_CHANNEL_CENTER - SRXL2_ESC_CHANNEL_MIN)) /
+                (SRXL2_ESC_PWM_CENTER - SRXL2_ESC_PWM_MIN);
     } else {
-        value = 0x8000 + ((uint32_t)(constrainedPulseUs - SRXL2_ESC_PWM_CENTER) * (0xFFFC - 0x8000)) /
-            (SRXL2_ESC_PWM_MAX - SRXL2_ESC_PWM_CENTER);
+        value = SRXL2_ESC_CHANNEL_CENTER +
+            ((uint32_t)(constrainedPulseUs - SRXL2_ESC_PWM_CENTER) *
+                (SRXL2_ESC_CHANNEL_MAX - SRXL2_ESC_CHANNEL_CENTER)) /
+                (SRXL2_ESC_PWM_MAX - SRXL2_ESC_PWM_CENTER);
     }
 
     return value & 0xFFFC;
