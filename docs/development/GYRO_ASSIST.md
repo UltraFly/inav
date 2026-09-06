@@ -4,6 +4,19 @@ Gyro Assist is an opt-in AUX modifier for fixed-wing MANUAL mode. The stick cont
 
 The implementation adds a dedicated `GYRO ASSIST` mode-range entry, persistent `gyro_assist_*` settings, the MANUAL servo-mixer hook, debug fields, and a separate EdgeTX tool. The modifier is off by default. Its per-axis gains also default to zero, so an AUX assignment alone cannot produce a correction.
 
+## Development branch boundary
+
+`feature/gyro-assist` is one of three canonical project branches and is independent of the two Avian branches:
+
+```text
+feature/gyro-assist                 (this branch; independent)
+
+feature/avian-esc-telemetry         (SRXL2 bus, throttle only, sensor 0x20)
+└── feature/avian-esc-textgen       (full channels, reverse, sensor 0x0C, Lua tool)
+```
+
+This branch contains the Gyro Assist firmware and the independent `inav-gyro-assist` EdgeTX tool. It must not contain SRXL2 ESC transport, Avian telemetry, TextGen, thrust reverse, or `inav-avian-esc`. Conversely, neither Avian branch may contain Gyro Assist or `inav-gyro-assist`. The intended first upstream merge request is built from this branch alone.
+
 ## Control law
 
 All commands inside the kernel use the logical normalized mixer range `[-1, 1]`. For each roll, pitch, and yaw axis:
