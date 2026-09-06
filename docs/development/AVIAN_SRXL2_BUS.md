@@ -62,7 +62,7 @@ The adapter must obey all of the following rules:
 6. Send scheduled channel frames only through `srxl2EscControlSchedulerBuildFrame()`. It delegates final bus-state gating to `srxl2EscBusBuildControlFrame()`, so neither layer permits control transmission outside `RUNNING`.
 7. Feed the scheduler only the configured throttle channel. Do not forward aileron, elevator, thrust reverse, or other AUX channels in the telemetry feature.
 8. Configure a safe throttle failsafe before enabling control transmission. The scheduler forces minimum throttle during disarm, failsafe, and stale input, and refuses to transmit a failsafe frame until that value is defined.
-9. Request ESC telemetry only in every tenth successfully built control frame. Use a zero reply ID in the other nine frames and in every failsafe frame; the codec also enforces reply suppression for failsafe.
+9. Request ESC telemetry only in every tenth successfully built control frame. At the 11 ms control period this is about 9.1 requests per second, reduced from the excessive 90.9 requests per second produced by polling every frame. The one-in-ten divider is a provisional hardware-test value rather than a finalized production rate. Use a zero reply ID in the other nine frames and in every failsafe frame; the codec also enforces reply suppression for failsafe.
 10. Encode the normal 1000--2000 microsecond channel range into `0x2AA0`--`0xD554`, preserving `0x8000` as center and clearing the two reserved low bits. Do not emit raw zero as minimum throttle.
 11. Mark telemetry fresh only after complete length and CRC validation. Expired data must not be published as current ESC sensor data.
 12. Allow `srxl2EscBusRestartDiscovery()` from PWM fallback only after the aircraft is disarmed, throttle is at minimum, PWM has stopped, and the pin is back in receive mode.
@@ -98,6 +98,8 @@ The packet codec separately covers protocol-level channel ordering and masks, PW
 
 ## Hardware-deferred validation
 
+The direct-path test matrix is a NEXUS-XR with a RadioMaster TX16S MK3 ExpressLRS transmitter, tested separately against a 6S Avian Lite 85A ESC, a 100A Avian ESC, and a 130A Avian ESC. The existing TX16S MK2 internal-4-in-1, AR10360T+, and Avian Lite 85A chain remains the known-working Spektrum behavioral reference.
+
 Do not consider the transport flight-ready until all of these have been demonstrated with the propeller removed:
 
 - PA9 electrical idle level and half-duplex direction changes on an oscilloscope or logic analyzer;
@@ -105,13 +107,13 @@ Do not consider the transport flight-ready until all of these have been demonstr
 - correct fallback to a safe PWM value for a non-SRXL2 ESC;
 - Avian handshake and continuous operation at 115200, including confirmation that the ESC never attempts a 400000-baud transition;
 - `0x2AA0` safe idle, `0x8000` center, and `0xD554` full travel compared with a known-working Spektrum receiver trace;
-- one sensor `0x20` reply request every tenth control frame;
+- one sensor `0x20` reply request every tenth control frame (about 9.1 Hz), with telemetry completeness, latency, collisions, and bus loading recorded so a lower production rate can be evaluated;
 - control cadence, two-character turnaround gaps, telemetry reply timing, and collision-free recovery;
 - ESC late power-up and ESC brownout recovery;
 - disarm, receiver failsafe, FC reboot, and malformed traffic;
 - voltage, current, eRPM/RPM, temperature, BEC, throttle, and power-output comparison with a known reference.
 
-Record the NEXUS hardware revision, INAV commit, ESC model and firmware, negotiated baud rate, throttle channel, and raw logic-analyzer captures with the test results.
+For each ESC, record the NEXUS hardware revision, TX16S MK3 and ExpressLRS versions, INAV commit, exact ESC model and firmware, negotiated baud rate, throttle channel, telemetry poll divider and measured reply rate, and raw logic-analyzer captures with the test results.
 
 ## References
 
