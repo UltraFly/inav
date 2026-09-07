@@ -65,7 +65,7 @@ The adapter must obey all of the following rules:
 6. Send scheduled channel frames only through `srxl2EscControlSchedulerBuildFrame()`. It delegates final bus-state gating to `srxl2EscBusBuildControlFrame()`, so neither layer permits control transmission outside `RUNNING`.
 7. Feed the scheduler only the configured throttle channel. Do not forward aileron, elevator, thrust reverse, or other AUX channels in the telemetry feature.
 8. Configure a safe throttle failsafe before enabling control transmission. The scheduler forces minimum throttle during disarm, failsafe, and stale input, and refuses to transmit a failsafe frame until that value is defined.
-9. Request ESC telemetry only in every tenth successfully built control frame. After granting a reply, reserve a 20 ms receive window by skipping the next nominal 11 ms transmission slot. The resulting request rate is about 8.3 Hz rather than 9.1 Hz. The divider and receive window are provisional hardware-test values: the 20 ms value is based on third-party Firma replies observed 4--16 ms after a grant and must be measured on all three Avian ESCs. Use a zero reply ID in intervening frames and every failsafe frame; the codec also enforces reply suppression for failsafe.
+9. Request ESC telemetry only in every thirtieth successfully built control frame. After granting a reply, reserve a 20 ms receive window by skipping the next nominal 11 ms transmission slot. The resulting request rate is about 2.9 Hz. This conservative starting rate is consistent with ArduPilot's approximately 3 Hz scheduling of sensor `0x20` on its receiver-facing Spektrum telemetry link, although that is evidence of a useful presentation rate rather than a direct ESC polling requirement. The divider and receive window remain provisional hardware-test values: the 20 ms value is based on third-party Firma replies observed 4--16 ms after a grant and must be measured on all three Avian ESCs. Use a zero reply ID in intervening frames and every failsafe frame; the codec also enforces reply suppression for failsafe.
 10. Encode the normal 1000--2000 microsecond channel range into `0x2AA0`--`0xD554`, preserving `0x8000` as center and clearing the two reserved low bits. Do not emit raw zero as minimum throttle.
 11. Mark telemetry fresh only after complete length and CRC validation. Expired data must not be published as current ESC sensor data.
 12. Allow `srxl2EscBusRestartDiscovery()` from PWM fallback only after the aircraft is disarmed, throttle is at minimum, PWM has stopped, and the pin is back in receive mode.
@@ -94,7 +94,7 @@ The control scheduler tests additionally cover:
 - immediate first output followed by an 11 ms ordinary cadence without catch-up bursts;
 - bus-state gating and deterministic timing reset;
 - a one-bit channel mask containing only the configured throttle channel;
-- one telemetry request every tenth control frame, with zero reply ID between requests;
+- one telemetry request every thirtieth control frame, with zero reply ID between requests;
 - a 20 ms protected receive window after each telemetry grant, implemented by skipping one nominal control slot, plus request and skipped-slot counters for bench diagnostics;
 - safe throttle during disarm, stale input, and explicit failsafe;
 - safe-throttle failsafe enforcement and telemetry-reply suppression;
@@ -113,7 +113,7 @@ Do not consider the transport flight-ready until all of these have been demonstr
 - correct fallback to a safe PWM value for a non-SRXL2 ESC;
 - Avian handshake and continuous operation at 115200, including confirmation that the ESC never attempts a 400000-baud transition;
 - `0x2AA0` safe idle, `0x8000` center, and `0xD554` full travel compared with a known-working Spektrum receiver trace;
-- one sensor `0x20` reply request every tenth emitted control frame (about 8.3 Hz with the protected receive slot), with request count, valid/invalid reply count, latency distribution, collisions, and bus loading recorded so both divider and window can be justified;
+- one sensor `0x20` reply request every thirtieth emitted control frame (about 2.9 Hz with the protected receive slot), with request count, valid/invalid reply count, latency distribution, collisions, and bus loading recorded so both divider and window can be justified;
 - operation at both standard 11 ms and 22 ms RC frame rates compared against the known Spektrum chain. The Firma/SR6100AT trace happened to use about 22 ms; that is an ordinary rate selection, not evidence of a Firma-specific cadence or a contradiction of the 11 ms implementation default;
 - two-character turnaround gaps, telemetry replies arriving 4--16 ms after a grant, and collision-free recovery; treat that latency range as a Firma test hypothesis until Avian captures confirm or replace it;
 - ESC late power-up and ESC brownout recovery;
@@ -132,4 +132,5 @@ For each ESC, record the NEXUS hardware revision, TX16S MK3 and ExpressLRS versi
 - [ArduPilot issue #27603: Spektrum Smart ESC support](https://github.com/ArduPilot/ardupilot/issues/27603) — open feature request; as of this review there is no merged ArduPilot Smart-ESC bus master
 - [Firma 150A bench and logic-analyzer report](https://github.com/ArduPilot/ardupilot/issues/27603#issuecomment-5024088801) — source of the idle pull-down, continuous discovery, approximately 22 ms reference cadence, 4--16 ms reply latency, collision, and sensor-scaling observations; unpublished third-party ArduPilot 4.6.3 work and **NEEDS VERIFYING** on Avian
 - [ArduPilot integration notes](https://github.com/ArduPilot/ardupilot/issues/27603#issuecomment-5035083785) — independently supports receiver-role master ID `0x21` and a separate ESC-facing state machine; **NEEDS VERIFYING**
+- [ArduPilot receiver-facing Spektrum telemetry scheduler](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_RCTelemetry/AP_Spektrum_Telem.cpp) — schedules ESC sensor `0x20` at approximately 3 Hz; evidence that this update rate is useful, not evidence of the direct ESC's required polling cadence
 - [Spektrum SRXL2 electrical clarification](https://github.com/SpektrumRC/SRXL2/issues/3#issuecomment-1172830140) — 3.3 V half-duplex, 115200 baud with optional 400000 baud, handshake timeout, and typical 11 ms receiver packet cadence

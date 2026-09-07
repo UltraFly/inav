@@ -74,7 +74,7 @@ TEST(Srxl2EscControlTest, SendsOnlyThrottleAtElevenMillisecondCadence)
         &safety, frame, sizeof(frame)));
 }
 
-TEST(Srxl2EscControlTest, RequestsTelemetryOnlyEveryTenthControlFrame)
+TEST(Srxl2EscControlTest, RequestsTelemetryAtConfiguredFrameInterval)
 {
     const srxl2EscBus_t bus = runningBus();
     srxl2EscControlScheduler_t scheduler;
@@ -84,7 +84,9 @@ TEST(Srxl2EscControlTest, RequestsTelemetryOnlyEveryTenthControlFrame)
     ASSERT_TRUE(srxl2EscControlSchedulerSetFailsafeThrottle(&scheduler, 1000));
     const srxl2EscControlSafety_t safety = normalSafety();
 
-    for (unsigned frameIndex = 0; frameIndex < 21; frameIndex++) {
+    for (unsigned frameIndex = 0;
+        frameIndex < (2 * SRXL2_ESC_TELEMETRY_REQUEST_INTERVAL_FRAMES) + 1;
+        frameIndex++) {
         const uint32_t nowUs = scheduler.nextFrameAtUs;
         ASSERT_TRUE(srxl2EscControlSchedulerUpdateThrottle(&scheduler, 1500, 100, 0, nowUs));
         ASSERT_NE((size_t)0, srxl2EscControlSchedulerBuildFrame(&scheduler, &bus,
