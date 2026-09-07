@@ -114,7 +114,7 @@ Do not consider the transport flight-ready until all of these have been demonstr
 - Avian handshake and continuous operation at 115200, including confirmation that the ESC never attempts a 400000-baud transition;
 - `0x2AA0` safe idle, `0x8000` center, and `0xD554` full travel compared with a known-working Spektrum receiver trace;
 - one sensor `0x20` reply request every tenth emitted control frame (about 8.3 Hz with the protected receive slot), with request count, valid/invalid reply count, latency distribution, collisions, and bus loading recorded so both divider and window can be justified;
-- 11 ms and 22 ms control cadences compared against the known Spektrum chain: the public receiver guidance says 11 ms while one Firma/SR6100AT trace showed about 22 ms, so neither observation should silently become a universal ESC requirement;
+- operation at both standard 11 ms and 22 ms RC frame rates compared against the known Spektrum chain. The Firma/SR6100AT trace happened to use about 22 ms; that is an ordinary rate selection, not evidence of a Firma-specific cadence or a contradiction of the 11 ms implementation default;
 - two-character turnaround gaps, telemetry replies arriving 4--16 ms after a grant, and collision-free recovery; treat that latency range as a Firma test hypothesis until Avian captures confirm or replace it;
 - ESC late power-up and ESC brownout recovery;
 - disarm, receiver failsafe, FC reboot, and malformed traffic;
