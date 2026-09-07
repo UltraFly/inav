@@ -37,8 +37,8 @@ static bool isEscDeviceId(uint8_t deviceId)
     return (deviceId & 0xF0) == SRXL2_ESC_DEVICE_ID_DEFAULT;
 }
 
-void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t priority,
-    uint8_t info, uint32_t uid)
+void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs,
+    srxl2EscBusDiscoveryPolicy_e discoveryPolicy, uint8_t priority, uint8_t info, uint32_t uid)
 {
     if (!bus) {
         return;
@@ -52,6 +52,7 @@ void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t priority,
     bus->sourceDeviceId = SRXL2_ESC_BUS_MASTER_DEVICE_ID;
     bus->priority = priority;
     bus->info = info;
+    bus->discoveryPolicy = discoveryPolicy;
 }
 
 void srxl2EscBusDisable(srxl2EscBus_t *bus)
@@ -103,6 +104,7 @@ bool srxl2EscBusProcessFrame(srxl2EscBus_t *bus, const uint8_t *frame, size_t le
         handshake.sourceDeviceId == bus->escDeviceId &&
         (bus->state == SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE ||
             bus->state == SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY)) {
+        bus->srxl2Detected = true;
         bus->state = SRXL2_ESC_BUS_SEND_FINAL_HANDSHAKE;
         bus->stateStartedAtMs = nowMs;
         return true;
@@ -119,13 +121,22 @@ size_t srxl2EscBusBuildPendingFrame(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t 
 
     if (bus->state == SRXL2_ESC_BUS_LISTEN_GUARD) {
         if ((uint32_t)(nowMs - bus->stateStartedAtMs) >= SRXL2_ESC_BUS_STARTUP_GUARD_MS) {
-            bus->state = SRXL2_ESC_BUS_PWM_FALLBACK;
+            if (bus->discoveryPolicy == SRXL2_ESC_BUS_DISCOVERY_ACTIVE_SRXL2_ONLY) {
+                bus->escDeviceId = SRXL2_ESC_DEVICE_ID_DEFAULT;
+                bus->state = SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE;
+            } else {
+                bus->state = SRXL2_ESC_BUS_PWM_FALLBACK;
+            }
         }
-        return 0;
+        if (bus->state != SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE) {
+            return 0;
+        }
     }
 
     if (bus->state == SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY) {
-        if ((uint32_t)(nowMs - bus->lastHandshakeTxAtMs) < SRXL2_ESC_BUS_HANDSHAKE_RETRY_MS) {
+        const uint32_t retryIntervalMs = bus->srxl2Detected ?
+            SRXL2_ESC_BUS_HANDSHAKE_RETRY_MS : SRXL2_ESC_BUS_ACTIVE_DISCOVERY_RETRY_MS;
+        if ((uint32_t)(nowMs - bus->lastHandshakeTxAtMs) < retryIntervalMs) {
             return 0;
         }
         bus->state = SRXL2_ESC_BUS_SEND_DIRECTED_HANDSHAKE;

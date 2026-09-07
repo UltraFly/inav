@@ -27,6 +27,14 @@ static void advanceControlFrameSchedule(srxl2EscControlScheduler_t *scheduler, u
     } while (controlFrameIsDue(scheduler, nowUs));
 }
 
+static void reserveTelemetryResponseWindow(srxl2EscControlScheduler_t *scheduler, uint32_t nowUs)
+{
+    while ((uint32_t)(scheduler->nextFrameAtUs - nowUs) < SRXL2_ESC_TELEMETRY_RESPONSE_WINDOW_US) {
+        scheduler->nextFrameAtUs += SRXL2_ESC_CONTROL_PERIOD_US;
+        scheduler->telemetryGuardedSlotCount++;
+    }
+}
+
 void srxl2EscControlSchedulerInit(srxl2EscControlScheduler_t *scheduler, uint32_t nowUs,
     uint8_t throttleChannel)
 {
@@ -113,6 +121,10 @@ size_t srxl2EscControlSchedulerBuildFrame(srxl2EscControlScheduler_t *scheduler,
             (uint8_t)(SRXL2_ESC_TELEMETRY_REQUEST_INTERVAL_FRAMES - 1U) :
             (uint8_t)(scheduler->telemetryRequestCountdown - 1U);
         advanceControlFrameSchedule(scheduler, nowUs);
+        if (requestTelemetry) {
+            scheduler->telemetryRequestCount++;
+            reserveTelemetryResponseWindow(scheduler, nowUs);
+        }
     }
 
     return length;

@@ -18,6 +18,9 @@
 #define SRXL2_ESC_CONTROL_INPUT_TIMEOUT_US          100000U
 #define SRXL2_ESC_CONTROL_SAFE_THROTTLE_US            1000U
 #define SRXL2_ESC_TELEMETRY_REQUEST_INTERVAL_FRAMES      10U
+// A third-party Firma trace observed replies as late as 16 ms. Skip the next 11 ms slot after
+// granting telemetry so the ESC owns an uninterrupted response window. Verify on Avian hardware.
+#define SRXL2_ESC_TELEMETRY_RESPONSE_WINDOW_US        20000U
 
 typedef struct srxl2EscControlSafety_s {
     bool armed;
@@ -35,6 +38,8 @@ typedef struct srxl2EscControlScheduler_s {
     uint16_t frameLosses;
     uint8_t throttleChannel;
     uint8_t telemetryRequestCountdown;
+    uint32_t telemetryRequestCount;
+    uint32_t telemetryGuardedSlotCount;
     bool throttleValid;
     bool failsafeThrottleValid;
 } srxl2EscControlScheduler_t;

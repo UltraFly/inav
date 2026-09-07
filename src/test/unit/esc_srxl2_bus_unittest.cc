@@ -18,9 +18,10 @@ extern "C" {
 static const uint8_t ESC_DEVICE_ID = 0x40;
 static const uint32_t FC_UID = 0x12345678;
 
-static void initBus(srxl2EscBus_t *bus, uint32_t nowMs = 0)
+static void initBus(srxl2EscBus_t *bus, uint32_t nowMs = 0,
+    srxl2EscBusDiscoveryPolicy_e discoveryPolicy = SRXL2_ESC_BUS_DISCOVERY_PASSIVE_PWM_FALLBACK)
 {
-    srxl2EscBusInit(bus, nowMs, 10, 0, FC_UID);
+    srxl2EscBusInit(bus, nowMs, discoveryPolicy, 10, 0, FC_UID);
 }
 
 static size_t buildEscHandshake(uint8_t *frame, uint8_t destinationDeviceId, bool supportsHighBaud = true,
@@ -74,6 +75,43 @@ TEST(Srxl2EscBusTest, MissingHandshakeSelectsPwmWithoutSerialTransmission)
     EXPECT_EQ((size_t)0, srxl2EscBusBuildPendingFrame(&bus, 1200, frame, sizeof(frame)));
     EXPECT_EQ(SRXL2_ESC_BUS_PWM_FALLBACK, bus.state);
     EXPECT_FALSE(srxl2EscBusCanSendControl(&bus));
+}
+
+TEST(Srxl2EscBusTest, ExplicitSrxl2OutputOffersDiscoveryAfterSilentGuard)
+{
+    srxl2EscBus_t bus;
+    uint8_t frame[SRXL2_ESC_HANDSHAKE_FRAME_SIZE];
+    srxl2EscHandshake_t decoded;
+    initBus(&bus, 1000, SRXL2_ESC_BUS_DISCOVERY_ACTIVE_SRXL2_ONLY);
+
+    EXPECT_EQ((size_t)0, srxl2EscBusBuildPendingFrame(&bus, 1199, frame, sizeof(frame)));
+    ASSERT_EQ(sizeof(frame), srxl2EscBusBuildPendingFrame(&bus, 1200, frame, sizeof(frame)));
+    ASSERT_TRUE(srxl2EscDecodeHandshake(frame, sizeof(frame), &decoded));
+    EXPECT_EQ(SRXL2_ESC_BUS_MASTER_DEVICE_ID, decoded.sourceDeviceId);
+    EXPECT_EQ(SRXL2_ESC_DEVICE_ID_DEFAULT, decoded.destinationDeviceId);
+    EXPECT_FALSE(decoded.supportsHighBaud);
+    EXPECT_EQ(SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY, bus.state);
+
+    EXPECT_EQ((size_t)0, srxl2EscBusBuildPendingFrame(&bus, 2199, frame, sizeof(frame)));
+    EXPECT_EQ(sizeof(frame), srxl2EscBusBuildPendingFrame(&bus, 2200, frame, sizeof(frame)));
+    EXPECT_EQ(SRXL2_ESC_BUS_WAIT_HANDSHAKE_REPLY, bus.state);
+}
+
+TEST(Srxl2EscBusTest, ExplicitSrxl2DiscoveryCompletesWithoutStartupAnnouncement)
+{
+    srxl2EscBus_t bus;
+    uint8_t frame[SRXL2_ESC_HANDSHAKE_FRAME_SIZE];
+    srxl2EscHandshake_t decoded;
+    initBus(&bus, 0, SRXL2_ESC_BUS_DISCOVERY_ACTIVE_SRXL2_ONLY);
+
+    ASSERT_EQ(sizeof(frame), srxl2EscBusBuildPendingFrame(&bus,
+        SRXL2_ESC_BUS_STARTUP_GUARD_MS, frame, sizeof(frame)));
+    ASSERT_EQ(sizeof(frame), buildEscHandshake(frame, SRXL2_ESC_BUS_MASTER_DEVICE_ID));
+    ASSERT_TRUE(srxl2EscBusProcessFrame(&bus, frame, sizeof(frame), 202));
+    ASSERT_EQ(sizeof(frame), srxl2EscBusBuildPendingFrame(&bus, 202, frame, sizeof(frame)));
+    ASSERT_TRUE(srxl2EscDecodeHandshake(frame, sizeof(frame), &decoded));
+    EXPECT_EQ(SRXL2_ESC_DEVICE_ID_BROADCAST, decoded.destinationDeviceId);
+    EXPECT_TRUE(bus.srxl2Detected);
 }
 
 TEST(Srxl2EscBusTest, ValidEscHandshakeUsesReceiverIdAndStaysAt115200)

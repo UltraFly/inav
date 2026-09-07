@@ -32,6 +32,7 @@
 
 #define SRXL2_ESC_BUS_STARTUP_GUARD_MS      200
 #define SRXL2_ESC_BUS_HANDSHAKE_RETRY_MS     50
+#define SRXL2_ESC_BUS_ACTIVE_DISCOVERY_RETRY_MS 1000
 
 #define SRXL2_ESC_BUS_BAUD               115200
 #define SRXL2_ESC_BUS_MASTER_DEVICE_ID     0x21
@@ -47,6 +48,13 @@ typedef enum {
     SRXL2_ESC_BUS_PWM_FALLBACK,
 } srxl2EscBusState_e;
 
+typedef enum {
+    // Preserve automatic PWM compatibility: listen only, then fall back without transmitting.
+    SRXL2_ESC_BUS_DISCOVERY_PASSIVE_PWM_FALLBACK,
+    // The output is explicitly configured as SRXL2: probe only after the listen guard and never use PWM.
+    SRXL2_ESC_BUS_DISCOVERY_ACTIVE_SRXL2_ONLY,
+} srxl2EscBusDiscoveryPolicy_e;
+
 typedef struct srxl2EscBus_s {
     srxl2EscBusState_e state;
     uint32_t stateStartedAtMs;
@@ -58,12 +66,13 @@ typedef struct srxl2EscBus_s {
     uint8_t escDeviceId;
     uint8_t priority;
     uint8_t info;
+    srxl2EscBusDiscoveryPolicy_e discoveryPolicy;
     bool srxl2Detected;
     bool hasTelemetry;
 } srxl2EscBus_t;
 
-void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs, uint8_t priority,
-    uint8_t info, uint32_t uid);
+void srxl2EscBusInit(srxl2EscBus_t *bus, uint32_t nowMs,
+    srxl2EscBusDiscoveryPolicy_e discoveryPolicy, uint8_t priority, uint8_t info, uint32_t uid);
 void srxl2EscBusDisable(srxl2EscBus_t *bus);
 // The caller must release PWM and put the shared signal pin in receive mode before restarting discovery.
 void srxl2EscBusRestartDiscovery(srxl2EscBus_t *bus, uint32_t nowMs);
