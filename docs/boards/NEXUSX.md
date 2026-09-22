@@ -14,6 +14,32 @@ It is connected to the main STM32F7 Flight Controller on UART5.
 None of the external connections route to the receiver, they are all connected to the STM32F7 Flight Controller.
 The receiver can be disabled using USER1, which controls a pinio on pin PC8.
 
+Spektrum Smart ESC testing
+--------------------------
+
+The NEXUSX target enables INAV's SRXL2 Smart ESC motor protocol. Initial project
+builds deliberately advertise 115200 baud only; 400000 baud remains disabled
+until the NEXUS-XR half-duplex electrical path and the available Avian ESCs have
+been captured and verified.
+
+The Smart ESC signal must use the TX pin of a UART assigned `Spektrum Smart ESC
+(SRXL2)` in the Ports tab. The normal `ESC` output pad is PA9 and is a timer
+output in the current target; it is not the configured UART1 TX pin. Do not
+assume that selecting SRXL2 converts that pad into a UART.
+
+Practical exposed TX choices include `RPM` (UART2 TX), the TX pin of port A
+(UART4), and the TX pin of port B (UART6). `AUX` becomes UART1 TX when UART1 is
+assigned. Port C can be UART3 TX but conflicts with the target's I2C2 bus and
+must not be used without accounting for the devices on that bus.
+
+Before connecting an ESC BEC, verify the intended servo-rail power path and
+voltage. Moving the signal from the three-pin ESC output to a UART can separate
+the signal from the BEC/ground connection. Use a split lead where necessary;
+never infer safe rail power from a working serial waveform.
+
+The first hardware-validation sequence is documented in
+[NEXUSX Avian Smart ESC validation](../development/NEXUSX_AVIAN_SMART_ESC_TEST.md).
+
 Pin configuration
 -----------------
 

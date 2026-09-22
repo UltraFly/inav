@@ -64,6 +64,12 @@
 #define SRXL2_BAUD_HIGH             400000
 #define SRXL2_BAUD_BIT_400K         0x01    /* baudSupported bit for 400000 */
 
+#ifdef MOTOR_SRXL2_115200_ONLY
+#define SRXL2_ADVERTISED_BAUD_BITS  0x00
+#else
+#define SRXL2_ADVERTISED_BAUD_BITS  SRXL2_BAUD_BIT_400K
+#endif
+
 #define SRXL2_PORT_OPTIONS          (SERIAL_STOPBITS_1 | SERIAL_PARITY_NO | SERIAL_BIDIR)
 
 /* ESC device IDs. rx/srxl2_types.h names the flight controller range; this is
@@ -341,7 +347,7 @@ static bool srxl2SendHandshake(srxl2Esc_t *e, uint8_t destinationId, uint8_t bau
  * of that very frame out at the new rate and lose it. */
 static void srxl2Finalise(srxl2Esc_t *e)
 {
-    e->agreedBaudBits = SRXL2_BAUD_BIT_400K & e->baudSupported;
+    e->agreedBaudBits = SRXL2_ADVERTISED_BAUD_BITS & e->baudSupported;
 
     /* Only arm the switch if the broadcast is actually on its way. If the port
      * had no room, stay where we are and try again on the next pass: a rate the
@@ -419,7 +425,7 @@ static void srxl2HandleHandshake(srxl2Esc_t *e, const uint8_t *buf)
         if (e->state == SRXL2_RUNNING && e->deviceId == src
             && (millis() - e->lastKeepaliveMs) >= SRXL2_LINK_TIMEOUT_MS) {
             e->lastKeepaliveMs = millis();
-            srxl2SendHandshake(e, src, SRXL2_BAUD_BIT_400K);
+            srxl2SendHandshake(e, src, SRXL2_ADVERTISED_BAUD_BITS);
         }
         return;
     }
@@ -434,7 +440,7 @@ static void srxl2HandleHandshake(srxl2Esc_t *e, const uint8_t *buf)
     // Answer the slave so it knows who the master is, then finalise. This also covers the
     // ESC being powered after the flight controller, the normal case on a bench: by then we
     // are in POLLING, which accepts a handshake, so the ESC is still found
-    srxl2SendHandshake(e, e->deviceId, SRXL2_BAUD_BIT_400K);
+    srxl2SendHandshake(e, e->deviceId, SRXL2_ADVERTISED_BAUD_BITS);
     srxl2Finalise(e);
 }
 
@@ -877,7 +883,7 @@ static void srxl2ProcessEsc(srxl2Esc_t *e, timeMs_t now)
             // power-up: a running one answered none of 128 handshakes, 128 broadcasts and
             // 319 telemetry requests, so a board that reboots under a powered ESC never
             // links, and no amount of asking changes that
-            srxl2SendHandshake(e, SRXL2_ESC_ID_FIRST + e->pollId, SRXL2_BAUD_BIT_400K);
+            srxl2SendHandshake(e, SRXL2_ESC_ID_FIRST + e->pollId, SRXL2_ADVERTISED_BAUD_BITS);
             e->pollId++;
             if (SRXL2_ESC_ID_FIRST + e->pollId > SRXL2_ESC_ID_LAST) {
                 e->pollId = 0;

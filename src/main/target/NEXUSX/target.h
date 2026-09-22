@@ -22,6 +22,12 @@
 
 #define USBD_PRODUCT_STRING  "NEXUSX"
 
+// Smart ESC testing uses an explicitly assigned UART TX pin. Keep initial
+// NEXUSX validation at 115200 until the F7 half-duplex path and each available
+// Avian model have been captured at the negotiated rate.
+#define USE_MOTOR_SRXL2
+#define MOTOR_SRXL2_115200_ONLY
+
 #define LED0                    PC10
 #define LED1                    PC11
 
