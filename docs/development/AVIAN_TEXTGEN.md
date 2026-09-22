@@ -1,6 +1,6 @@
 # Avian ESC TextGen design
 
-Avian TextGen programming is a separate feature from ordinary ESC telemetry. Both use the same SRXL2 wire and polling infrastructure, but TextGen has its own display model, safety state, channel overrides, radio interface, and test plan.
+Avian TextGen programming is a separate feature from ordinary ESC telemetry. Both use the upstream `motor_srxl2` driver merged in INAV PR #11947, but TextGen has its own display model, safety state, programming-only channel overrides, radio interface, and test plan. The TextGen branch is stacked directly on `feature/avian-esc-telemetry`; Gyro Assist remains independent of both Avian branches.
 
 Within this project, TextGen is the only mechanism used to program an Avian ESC. Spektrum Forward Programming is a separate receiver-configuration protocol; implementing that protocol is out of scope. INAV Gyro Assist and its MSP configuration provide the project's INAV-native functional equivalent of Forward-Programming-configured receiver stabilization, but remain completely separate from ESC TextGen. The corresponding radio tool is `inav-avian-esc`; it does not require Gyro Assist.
 
@@ -21,7 +21,7 @@ Lines `0` through `8` form the display. Line `0` is the title and lines `1` thro
 
 `escTextGenDisplay_t` stores exactly nine lines of at most 13 printable ASCII characters, a valid-line mask, one selected instance, a revision counter, and a pending-refresh flag. The decoder rejects wrong lengths, unknown line numbers, control characters, and data from a second instance. A NUL terminator ends the visible string; unused bytes after it are ignored. Full-width 13-character lines remain NUL-terminated in INAV memory.
 
-The TextGen decoder consumes only the sensor payload. `srxl2EscDecodeTelemetryFrame()` validates the 22-byte SRXL2 envelope and CRC and exposes its 16-byte payload for dispatch to TextGen. Invalid envelopes must never reach the TextGen decoder or refresh the session timeout. Live UART frame routing is still pending.
+The TextGen decoder consumes only the sensor payload. The upstream driver already validates the SRXL2 envelope and CRC before `srxl2HandleTelemetry()` dispatches sensor `0x20`. The later integration will add sensor `0x0C` dispatch at that validated boundary. Invalid envelopes must never reach the TextGen decoder or refresh the session timeout. Live UART routing is still pending.
 
 ## Programming-session safety
 
@@ -33,7 +33,7 @@ A session can start only when all five entry conditions are true:
 - failsafe is inactive;
 - the ESC link is available.
 
-While active, the session produces a channel override with throttle fixed at 1000 microseconds and aileron/elevator centered at 1500 microseconds. A deliberate navigation request produces one bounded 250 ms pulse:
+While active, the session produces a channel override with throttle fixed at 1000 microseconds and aileron/elevator centered at 1500 microseconds. A deliberate navigation request produces one bounded 350 ms pulse, matching the first real-ESC result from `smart-esc-tool`:
 
 | Action | Aileron | Elevator |
 | --- | ---: | ---: |
@@ -44,15 +44,15 @@ While active, the session produces a channel override with throttle fixed at 100
 
 The throttle override remains at 1000 microseconds during every navigation pulse. A second request is rejected until the current pulse expires, after which the output automatically returns to neutral even if the caller has not mutated session state.
 
-The session immediately releases all channel overrides and records a reason if the aircraft arms, throttle rises, the thrust-reverse switch leaves its normal position, failsafe begins, the link is lost, malformed TextGen traffic is reported, the user exits, or no valid TextGen activity arrives for five seconds. All timers use wrap-safe unsigned arithmetic. The application can mark a setting change so the power-cycle-required warning survives session exit; starting a new session clears that warning.
+The session immediately releases all channel overrides and records a reason if the aircraft arms, throttle rises, the thrust-reverse switch leaves its normal position, failsafe begins, the link is lost, malformed TextGen traffic is reported, the user exits, or no valid TextGen activity arrives for 30 seconds. The longer inactivity bound accommodates the measured two-step menu-entry sequence, which holds each requested stick position for about eight seconds. Valid TextGen rows and accepted navigation actions refresh activity. All timers use wrap-safe unsigned arithmetic. The application can mark a setting change so the power-cycle-required warning survives session exit; starting a new session clears that warning.
 
-The 250 ms pulse duration and direction polarity are safe, explicit initial values based on conventional stick navigation; they are not yet Avian-hardware validated. Confirm them against a supported ESC with the propeller removed before enabling write controls in the radio application. If a model reverses aileron or elevator, the final integration must define whether navigation is applied before or after that reversal and test both cases.
+The 350 ms pulse and approximately 250 ms neutral dwell were measured on an Avian 70A Smart Lite through `smart-esc-tool`. They remain unverified on this project's 85A, 100A, and 130A ESCs. The firmware session generates virtual SRXL2 channel values after the receiver/mixer path, so aircraft servo reversal must not alter menu navigation polarity.
 
 ## Thrust reverse channel
 
-The captured Avian menu includes `THRUST REV = CH9`. Treat this as an ESC-side channel assignment, not as INAV reversible-motor mode: the user selects the desired channel in TextGen, and the SRXL2 adapter preserves the same one-based transmitter channel number in its outgoing control mask (`CH9` is protocol channel index `8`).
+The captured Avian menu includes `THRUST REV = CH9`. Treat this as the ESC-side SRXL2 slot assignment used by upstream's `esc_srxl2_reverse_channel` setting, not as INAV reversible-motor mode and not as a live receiver-channel mapping.
 
-During normal operation, the assigned AUX channel follows its receiver input. No duplicate channel assignment is required in INAV. Its radio/INAV failsafe value must be explicitly configured and verified as non-reverse, and the adapter must forward the defined failsafe vector rather than stale input. TextGen navigation temporarily overrides only throttle, aileron, and elevator; every other configured channel remains in the outgoing frame. Entry requires the physical reverse switch to be normal, while forced zero throttle prevents a direction request from producing thrust. The radio UI should display the selected assignment once firmware exposes it, but the ESC remains the authority for which channel it observes.
+During normal operation, INAV sends throttle plus the configured virtual reverse slot and drives that slot from the `THRUST REVERSE` mode. TextGen programming temporarily generates only virtual channels 1, 2, and 3 for safe throttle, aileron, and elevator navigation; it does not forward the live receiver vector. Entry requires the reverse mode to be inactive, and any abort restores the upstream driver's ordinary throttle/reverse frame construction. The radio UI should display INAV's configured slot alongside the value read from the ESC so a mismatch is visible.
 
 ## Planned MSP/EdgeTX interface
 
@@ -96,3 +96,4 @@ Store the ESC model, ESC firmware, INAV commit, negotiated baud rate, channel ma
 - [Spektrum telemetry sensor definitions](https://github.com/SpektrumRC/SpektrumDocumentation/blob/master/Telemetry/spektrumTelemetrySensors.h)
 - [EdgeTX Spektrum raw telemetry bridge](https://github.com/EdgeTX/edgetx/blob/main/radio/src/telemetry/spektrum.cpp)
 - [DSMTools TextGen renderer and simulator fixtures](https://github.com/frankiearzu/DSMTools)
+- [MrScothh Smart ESC tool and measured Avian menu behavior](https://github.com/MrScothh/smart-esc-tool)

@@ -79,11 +79,11 @@ For sensor `0x0C`, EdgeTX's Spektrum raw bridge uses the `STR` marker in bytes `
 
 The tool clears raw-buffer ownership on normal TextGen exit and tool exit. Capture starts only after two `ENTER` presses with the physical throttle stick fully low. Version 0.3 displays the menu but does not synthesize aileron, elevator, or throttle: with a Smart receiver and 4-in-1 module, the pilot continues to use the physical sticks as directed by the ESC.
 
-Thrust reverse is configured in this same ESC menu. The captured Avian Lite 85A screen shows `THRUST REV = CH9`; the intended direct-INAV path forwards the configured receiver channels with their numbering intact so the ESC can observe the selected AUX channel. The ESC owns the selection and no duplicate INAV channel selector is required. The selected radio channel needs a verified non-reverse failsafe value, and the reverse switch must be normal before TextGen entry.
+Thrust reverse is configured in this same ESC menu. The captured Avian Lite 85A screen shows `THRUST REV = CH9`. Upstream INAV now provides `esc_srxl2_reverse_channel` and the `THRUST REVERSE` mode: the setting selects the virtual SRXL2 slot watched by the ESC, while the radio switch activates the INAV mode. The tool must show both values and require the mode to be inactive before TextGen entry; it must not continuously forward the receiver channel vector.
 
 ## ExpressLRS / CRSF plan
 
-The NEXUS-XR internal ExpressLRS path cannot use `multiBuffer()`. The same TextGen display model, ESC state, and abstract navigation actions will therefore travel through MSP over CRSF. The radio sends abstract up/down/select/back actions; INAV owns bounded SRXL2 channel generation, zero-throttle enforcement, timeouts, and deterministic restoration of ordinary forwarding.
+The NEXUS-XR internal ExpressLRS path cannot use `multiBuffer()`. The same TextGen display model, ESC state, and abstract navigation actions will therefore travel through MSP over CRSF. The radio sends abstract up/down/select/back actions; INAV owns bounded virtual SRXL2 channels 1--3, zero-throttle enforcement, timeouts, and deterministic restoration of upstream's ordinary throttle/reverse output.
 
 Project-specific MSP command IDs must be assigned and documented in INAV before this tool encodes them.
 

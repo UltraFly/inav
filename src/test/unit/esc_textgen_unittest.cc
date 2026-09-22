@@ -234,11 +234,15 @@ TEST(EscTextGenSessionTest, NavigationUsesBoundedPulsesThenReturnsNeutral)
     EXPECT_EQ(ESC_TEXTGEN_CHANNEL_CENTER_US, channelOverride.aileronPulseUs);
     EXPECT_EQ(ESC_TEXTGEN_THROTTLE_SAFE_US, channelOverride.throttlePulseUs);
 
-    EXPECT_FALSE(escTextGenSessionRequestNavigation(&session, ESC_TEXTGEN_NAVIGATION_RIGHT, 349));
-    channelOverride = escTextGenSessionGetChannelOverride(&session, 350);
+    EXPECT_FALSE(escTextGenSessionRequestNavigation(&session, ESC_TEXTGEN_NAVIGATION_RIGHT,
+        100 + ESC_TEXTGEN_NAVIGATION_PULSE_MS - 1));
+    channelOverride = escTextGenSessionGetChannelOverride(&session,
+        100 + ESC_TEXTGEN_NAVIGATION_PULSE_MS);
     EXPECT_EQ(ESC_TEXTGEN_CHANNEL_CENTER_US, channelOverride.elevatorPulseUs);
-    EXPECT_TRUE(escTextGenSessionRequestNavigation(&session, ESC_TEXTGEN_NAVIGATION_RIGHT, 350));
-    channelOverride = escTextGenSessionGetChannelOverride(&session, 350);
+    EXPECT_TRUE(escTextGenSessionRequestNavigation(&session, ESC_TEXTGEN_NAVIGATION_RIGHT,
+        100 + ESC_TEXTGEN_NAVIGATION_PULSE_MS));
+    channelOverride = escTextGenSessionGetChannelOverride(&session,
+        100 + ESC_TEXTGEN_NAVIGATION_PULSE_MS);
     EXPECT_EQ(ESC_TEXTGEN_CHANNEL_MAX_US, channelOverride.aileronPulseUs);
 }
 
