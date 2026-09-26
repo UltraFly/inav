@@ -61,7 +61,7 @@
 static uint8_t activeChannelCount[ADCDEV_COUNT] = {0};
 #endif
 
-static int adcFunctionMap[ADC_FUNCTION_COUNT];
+static int adcFunctionMap[ADC_RUNTIME_FUNCTION_COUNT];
 adc_config_t adcConfig[ADC_CHN_COUNT];  // index 0 is dummy for ADC_CHN_NONE
 volatile ADC_VALUES_ALIGNMENT(uint16_t adcValues[ADCDEV_COUNT][ADC_CHN_COUNT * ADC_AVERAGE_N_SAMPLES]);
 
@@ -83,6 +83,17 @@ bool adcIsFunctionAssigned(uint8_t function)
 {
     // Map function to ADC channel
     return (adcFunctionMap[function] != ADC_CHN_NONE);
+}
+
+bool adcIsFunctionAvailable(uint8_t function)
+{
+    if (function >= ADC_RUNTIME_FUNCTION_COUNT) {
+        return false;
+    }
+
+    const int channel = adcFunctionMap[function];
+    return channel >= ADC_CHN_1 && channel <= ADC_CHN_MAX
+        && adcConfig[channel].adcDevice != ADCINVALID && adcConfig[channel].enabled;
 }
 
 uint16_t adcGetChannel(uint8_t function)
@@ -109,7 +120,7 @@ uint16_t adcGetChannel(uint8_t function)
 #if defined(ADC_CHANNEL_1_PIN) || defined(ADC_CHANNEL_2_PIN) || defined(ADC_CHANNEL_3_PIN) || defined(ADC_CHANNEL_4_PIN) || defined(ADC_CHANNEL_5_PIN) || defined(ADC_CHANNEL_6_PIN)
 static bool isChannelInUse(int channel)
 {
-    for (int i = 0; i < ADC_FUNCTION_COUNT; i++) {
+    for (int i = 0; i < ADC_RUNTIME_FUNCTION_COUNT; i++) {
         if (adcFunctionMap[i] == channel)
             return true;
     }
@@ -121,7 +132,7 @@ static bool isChannelInUse(int channel)
 #if !defined(ADC_CHANNEL_1_PIN) || !defined(ADC_CHANNEL_2_PIN) || !defined(ADC_CHANNEL_3_PIN) || !defined(ADC_CHANNEL_4_PIN) || !defined(ADC_CHANNEL_5_PIN) || !defined(ADC_CHANNEL_6_PIN)
 static void disableChannelMapping(int channel)
 {
-    for (int i = 0; i < ADC_FUNCTION_COUNT; i++) {
+    for (int i = 0; i < ADC_RUNTIME_FUNCTION_COUNT; i++) {
         if (adcFunctionMap[i] == channel) {
             adcFunctionMap[i] = ADC_CHN_NONE;
         }
@@ -134,7 +145,7 @@ void adcInit(drv_adc_config_t *init)
     memset(&adcConfig, 0, sizeof(adcConfig));
 
     // Remember ADC function to ADC channel mapping
-    for (int i = 0; i < ADC_FUNCTION_COUNT; i++) {
+    for (int i = 0; i < ADC_RUNTIME_FUNCTION_COUNT; i++) {
         if (init->adcFunctionChannel[i] >= ADC_CHN_1 && init->adcFunctionChannel[i] <= ADC_CHN_MAX) {
             adcFunctionMap[i] = init->adcFunctionChannel[i];
         }
@@ -249,6 +260,18 @@ bool adcIsFunctionAssigned(uint8_t function)
 {
     UNUSED(function);
     return false;
+}
+
+bool adcIsFunctionAvailable(uint8_t function)
+{
+    UNUSED(function);
+    return false;
+}
+
+int adcGetFunctionChannelAllocation(uint8_t function)
+{
+    UNUSED(function);
+    return ADC_CHN_NONE;
 }
 
 void adcInit(drv_adc_config_t *init)

@@ -15,6 +15,10 @@ set_property(SOURCE battery_ina226_unittest.cc PROPERTY depends
     "sensors/battery.c" "drivers/ina226.c" "common/filter.c" "common/lulu.c" "common/maths.c")
 set_property(SOURCE battery_ina226_unittest.cc PROPERTY definitions USE_INA226 USE_I2C USE_I2C_DEVICE_1 BATTERY_I2C_BUS=BUS_I2C1 INA226_I2C_ADDRESS=0x40 USE_HEADTRACKER USE_STATS USE_ADC)
 
+set_property(SOURCE bec_voltage_unittest.cc PROPERTY depends
+    "sensors/bec_voltage.c" "common/filter.c" "common/lulu.c" "common/maths.c")
+set_property(SOURCE bec_voltage_unittest.cc PROPERTY definitions USE_ADC)
+
 set_property(SOURCE bitarray_unittest.cc PROPERTY depends "common/bitarray.c")
 
 set_property(SOURCE compass_orientation_unittest.cc PROPERTY depends
@@ -41,6 +45,11 @@ set_property(SOURCE rcdevice_unittest.cc PROPERTY depends
 set_property(SOURCE sensor_gyro_unittest.cc PROPERTY depends
     "build/debug.c" "common/maths.c" "common/calibration.c" "common/filter.c"
     "drivers/accgyro/accgyro_fake.c" "sensors/gyro.c" "sensors/boardalignment.c")
+
+set_property(SOURCE telemetry_crsf_voltage_unittest.cc PROPERTY depends
+    "telemetry/crsf.c" "common/crc.c" "common/streambuf.c" "common/maths.c")
+set_property(SOURCE telemetry_crsf_voltage_unittest.cc PROPERTY definitions
+    USE_SERIALRX_CRSF USE_TELEMETRY_CRSF USE_ADC)
 
 set_property(SOURCE telemetry_hott_unittest.cc PROPERTY depends
     "telemetry/hott.c" "common/gps_conversion.c" "common/string_light.c")

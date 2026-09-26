@@ -14,6 +14,9 @@ Multiple telemetry providers are currently supported, FrSky, Graupner HoTT V4, S
 
 All telemetry systems use serial ports, configure serial ports to use the telemetry system required. Multiple telemetry streams may be enabled, but only one of each type, e.g. Smartport + LTM or MAVLink + CRSF.
 
+CRSF / ExpressLRS can report an independent, locally measured [BEC voltage (VBEC)](BEC_Voltage.md)
+alongside the main battery voltage on boards with suitable ADC sensing hardware.
+
 ## SmartPort (S.Port) telemetry
 
 Smartport is a telemetry system used by newer FrSky transmitters such as the Taranis Q X7, X9D, X9D+, X9E or XJR paired with X-series receivers such as the X4R(SB), X8R, XSR, R-XSR, XSR-M or XSR-E. For older D-series receivers see FrSky telemetry below.

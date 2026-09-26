@@ -57,6 +57,7 @@
 #include "rx/rx.h"
 
 #include "sensors/battery.h"
+#include "sensors/bec_voltage.h"
 #include "sensors/esc_sensor.h"
 #include "sensors/pitotmeter.h"
 #include "sensors/sensors.h"
@@ -434,6 +435,25 @@ static bool crsfTemperature(sbuf_t *dst)
     return false;
 }
 
+#ifdef USE_ADC
+static bool crsfFrameBecVoltage(sbuf_t *dst)
+{
+    uint16_t voltage;
+    if (!becVoltageGet(&voltage) || voltage > UINT16_MAX / 10) {
+        return false;
+    }
+
+    sbufWriteU8(dst, CRSF_FRAME_VOLTAGE_PAYLOAD_SIZE + CRSF_FRAME_LENGTH_TYPE_CRC);
+    crsfSerialize8(dst, CRSF_FRAMETYPE_VOLTAGE);
+    // 0x0E sources >= 128 denote general voltage arrays, not battery cells.
+    // INAV uses the FC address as its source ID, with VBEC in element 0.
+    // This is an INAV convention, not a protocol-reserved BEC source ID.
+    crsfSerialize8(dst, CRSF_ADDRESS_FLIGHT_CONTROLLER);
+    crsfSerialize16(dst, voltage * 10); // centivolts to millivolts; zero is valid
+    return true;
+}
+#endif
+
 typedef enum {
     CRSF_ACTIVE_ANTENNA1 = 0,
     CRSF_ACTIVE_ANTENNA2 = 1
@@ -605,10 +625,12 @@ typedef enum {
     CRSF_FRAME_TEMP_INDEX,
     CRSF_FRAME_RPM_INDEX,
     CRSF_FRAME_AIRSPEED_INDEX,
+    CRSF_FRAME_BEC_VOLTAGE_INDEX,
     CRSF_SCHEDULE_COUNT_MAX
 } crsfFrameTypeIndex_e;
 
 static uint8_t crsfScheduleCount;
+static uint8_t crsfScheduleIndex;
 static uint16_t crsfSchedule[CRSF_SCHEDULE_COUNT_MAX];
 
 #if defined(USE_MSP_OVER_TELEMETRY)
@@ -645,7 +667,6 @@ static void processCrsf(void)
         return; // do nothing if telemetry ouptut buffer is not empty yet.
     }
 
-    static uint8_t crsfScheduleIndex = 0;
     const uint16_t currentSchedule = crsfSchedule[crsfScheduleIndex];
 
     sbuf_t crsfPayloadBuf;
@@ -661,6 +682,14 @@ static void processCrsf(void)
         crsfFrameBatterySensor(dst);
         crsfFinalize(dst);
     }
+#ifdef USE_ADC
+    if (currentSchedule & BV(CRSF_FRAME_BEC_VOLTAGE_INDEX)) {
+        crsfInitializeFrame(dst);
+        if (crsfFrameBecVoltage(dst)) {
+            crsfFinalize(dst);
+        }
+    }
+#endif
     if (currentSchedule & BV(CRSF_FRAME_FLIGHT_MODE_INDEX)) {
         crsfInitializeFrame(dst);
         crsfFrameFlightMode(dst);
@@ -726,6 +755,11 @@ void initCrsfTelemetry(void)
     crsfSchedule[index++] = BV(CRSF_FRAME_ATTITUDE_INDEX);
     crsfSchedule[index++] = BV(CRSF_FRAME_BATTERY_SENSOR_INDEX);
     crsfSchedule[index++] = BV(CRSF_FRAME_FLIGHT_MODE_INDEX);
+#ifdef USE_ADC
+    if (becVoltageIsConfigured()) {
+        crsfSchedule[index++] = BV(CRSF_FRAME_BEC_VOLTAGE_INDEX);
+    }
+#endif
 #ifdef USE_GPS
     if (feature(FEATURE_GPS)) {
         crsfSchedule[index++] = BV(CRSF_FRAME_GPS_INDEX);
@@ -771,6 +805,7 @@ void initCrsfTelemetry(void)
     }
 #endif
     crsfScheduleCount = (uint8_t)index;
+    crsfScheduleIndex = 0;
 }
 
 bool checkCrsfTelemetryState(void)
@@ -835,6 +870,13 @@ int getCrsfFrame(uint8_t *frame, crsfFrameType_e frameType)
     case CRSF_FRAMETYPE_BATTERY_SENSOR:
         crsfFrameBatterySensor(sbuf);
         break;
+#ifdef USE_ADC
+    case CRSF_FRAMETYPE_VOLTAGE:
+        if (!crsfFrameBecVoltage(sbuf)) {
+            return 0;
+        }
+        break;
+#endif
     case CRSF_FRAMETYPE_FLIGHT_MODE:
         crsfFrameFlightMode(sbuf);
         break;

@@ -471,6 +471,24 @@ groups:
         min: ADC_CHN_NONE
         max: ADC_CHN_MAX
 
+  - name: PG_BEC_VOLTAGE_CONFIG
+    type: becVoltageConfig_t
+    headers: ["sensors/bec_voltage.h"]
+    condition: USE_ADC
+    members:
+      - name: vbec_adc_channel
+        description: "ADC channel for independent BEC voltage measurement. 0 disables VBEC. Requires a suitable voltage divider and reboot. A channel already used by another ADC function is not allocated to VBEC."
+        default_value: 0
+        field: adcChannel
+        min: ADC_CHN_NONE
+        max: ADC_CHN_MAX
+      - name: vbec_scale
+        description: "BEC voltage divider ratio multiplied by 100, using the same calibration convention as vbat_scale. Calibrate against a voltmeter."
+        default_value: :target
+        field: scale
+        min: 1
+        max: 65535
+
   - name: PG_ACCELEROMETER_CONFIG
     type: accelerometerConfig_t
     headers: ["sensors/acceleration.h"]

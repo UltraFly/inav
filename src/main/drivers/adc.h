@@ -24,7 +24,11 @@ typedef enum {
     ADC_RSSI = 1,
     ADC_CURRENT = 2,
     ADC_AIRSPEED = 3,
-    ADC_FUNCTION_COUNT
+    // Frozen for the original ADC-channel parameter group stored in EEPROM.
+    ADC_FUNCTION_COUNT,
+    // Additional functions have independent configuration, but share the ADC driver.
+    ADC_BEC = ADC_FUNCTION_COUNT,
+    ADC_RUNTIME_FUNCTION_COUNT
 } adcFunction_e;
 
 typedef enum {
@@ -40,12 +44,13 @@ typedef enum {
 } adcChannel_e;
 
 typedef struct drv_adc_config_s {
-    uint8_t adcFunctionChannel[ADC_FUNCTION_COUNT];
+    uint8_t adcFunctionChannel[ADC_RUNTIME_FUNCTION_COUNT];
 } drv_adc_config_t;
 
 void adcInit(drv_adc_config_t *init);
 uint16_t adcGetChannel(uint8_t channel);
 bool adcIsFunctionAssigned(uint8_t function);
+bool adcIsFunctionAvailable(uint8_t function);
 int adcGetFunctionChannelAllocation(uint8_t function);
 
 #if defined(USE_ADC_AVERAGING)

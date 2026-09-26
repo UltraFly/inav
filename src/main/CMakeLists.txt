@@ -498,6 +498,8 @@ main_sources(COMMON_SRC
     sensors/acceleration.h
     sensors/battery.c
     sensors/battery.h
+    sensors/bec_voltage.c
+    sensors/bec_voltage.h
     sensors/battery_config_structs.h
     sensors/battery_sensor_dronecan.c
     sensors/battery_sensor_dronecan.h

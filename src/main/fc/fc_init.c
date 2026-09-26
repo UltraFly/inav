@@ -142,6 +142,7 @@
 #include "sensors/acceleration.h"
 #include "sensors/barometer.h"
 #include "sensors/battery.h"
+#include "sensors/bec_voltage.h"
 #include "sensors/boardalignment.h"
 #include "sensors/compass.h"
 #include "sensors/gyro.h"
@@ -520,6 +521,7 @@ void init(void)
     }
 #endif
 
+    becVoltageConfigureAdc(&adc_params);
     adcInit(&adc_params);
 #endif
 

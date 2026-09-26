@@ -7472,6 +7472,26 @@ Warning voltage per cell, this triggers battery-warning alarms, in 0.01V units, 
 
 ---
 
+### vbec_adc_channel
+
+ADC channel for independent BEC voltage measurement. 0 disables VBEC. Requires a suitable voltage divider and reboot. A channel already used by another ADC function is not allocated to VBEC.
+
+| Default | Min | Max |
+| --- | --- | --- |
+| 0 | ADC_CHN_NONE | ADC_CHN_MAX |
+
+---
+
+### vbec_scale
+
+BEC voltage divider ratio multiplied by 100, using the same calibration convention as vbat_scale. Calibrate against a voltmeter.
+
+| Default | Min | Max |
+| --- | --- | --- |
+| _target default_ | 1 | 65535 |
+
+---
+
 ### vtol_autotransition_always
 
 When enabled, an armed manual VTOL profile switch between a multicopter-like profile and a fixed-wing profile starts the auto-transition controller instead of switching profiles directly. This allows a two-position desired-mode switch: selecting FW starts MC->FW, selecting MC starts FW->MC. Disarmed direct profile switching remains available for bench and preflight checks. OFF preserves direct manual profile switching when `MIXER TRANSITION` is not active. Available only on targets with more than 512 KB flash.

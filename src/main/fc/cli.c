@@ -116,6 +116,7 @@ bool cliMode = false;
 #include "sensors/acceleration.h"
 #include "sensors/barometer.h"
 #include "sensors/battery.h"
+#include "sensors/bec_voltage.h"
 #include "sensors/boardalignment.h"
 #include "sensors/compass.h"
 #include "sensors/diagnostics.h"
@@ -4241,17 +4242,19 @@ static void cliStatus(char *cmdline)
     cliPrintLinef("I2C Errors: %d, config size: %d, max available config: %d", i2cErrorCounter, getEEPROMConfigSize(), &__config_end - &__config_start);
 #endif
 #if defined(USE_ADC) && !defined(SITL_BUILD)
-    static char * adcFunctions[] = { "BATTERY", "RSSI", "CURRENT", "AIRSPEED" };
+    static const char * const adcFunctions[] = { "BATTERY", "RSSI", "CURRENT", "AIRSPEED", "BEC" };
     cliPrintLine("ADC channel usage:");
-    for (int i = 0; i < ADC_FUNCTION_COUNT; i++) {
+    for (int i = 0; i < ADC_RUNTIME_FUNCTION_COUNT; i++) {
         cliPrintf("  %8s :", adcFunctions[i]);
 
         cliPrint(" configured = ");
-        if (adcChannelConfig()->adcFunctionChannel[i] == ADC_CHN_NONE) {
+        const uint8_t configuredChannel = i == ADC_BEC ? becVoltageConfig()->adcChannel
+            : adcChannelConfig()->adcFunctionChannel[i];
+        if (configuredChannel == ADC_CHN_NONE) {
             cliPrint("none");
         }
         else {
-            cliPrintf("ADC %d", adcChannelConfig()->adcFunctionChannel[i]);
+            cliPrintf("ADC %d", configuredChannel);
         }
 
         cliPrint(", used = ");
@@ -4260,6 +4263,14 @@ static void cliStatus(char *cmdline)
         }
         else {
             cliPrintLinef("ADC %d", adcGetFunctionChannelAllocation(i));
+        }
+    }
+    if (becVoltageIsConfigured()) {
+        uint16_t voltage;
+        if (becVoltageGet(&voltage)) {
+            cliPrintLinef("VBEC: %u.%02u V", voltage / 100, voltage % 100);
+        } else {
+            cliPrintLine("VBEC: unavailable");
         }
     }
 #endif

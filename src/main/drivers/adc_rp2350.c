@@ -72,7 +72,7 @@
  * power-of-2 boundary ≥ buffer size for the DMA ring mode (2^ADC_RING_BITS = 8 bytes). */
 static volatile uint16_t adcDmaBuf[ADC_RR_COUNT] __attribute__((aligned(1u << ADC_RING_BITS)));
 
-static adcChannel_e adcFunctionMap[ADC_FUNCTION_COUNT];
+static adcChannel_e adcFunctionMap[ADC_RUNTIME_FUNCTION_COUNT];
 
 static bool adcReady = false;
 
@@ -94,7 +94,7 @@ static int chnToRp2350Ch(adcChannel_e chn)
 
 bool adcIsFunctionAssigned(uint8_t function)
 {
-    if (function >= ADC_FUNCTION_COUNT) {
+    if (function >= ADC_RUNTIME_FUNCTION_COUNT) {
         return false;
     }
     return adcFunctionMap[function] != ADC_CHN_NONE;
@@ -102,15 +102,21 @@ bool adcIsFunctionAssigned(uint8_t function)
 
 int adcGetFunctionChannelAllocation(uint8_t function)
 {
-    if (function >= ADC_FUNCTION_COUNT) {
+    if (function >= ADC_RUNTIME_FUNCTION_COUNT) {
         return ADC_CHN_NONE;
     }
     return (int)adcFunctionMap[function];
 }
 
+bool adcIsFunctionAvailable(uint8_t function)
+{
+    return adcReady && function < ADC_RUNTIME_FUNCTION_COUNT
+        && chnToRp2350Ch(adcFunctionMap[function]) >= 0;
+}
+
 uint16_t adcGetChannel(uint8_t function)
 {
-    if (!adcReady || function >= ADC_FUNCTION_COUNT) {
+    if (!adcReady || function >= ADC_RUNTIME_FUNCTION_COUNT) {
         return 0;
     }
     int ch = chnToRp2350Ch(adcFunctionMap[function]);
@@ -122,7 +128,7 @@ uint16_t adcGetChannel(uint8_t function)
 
 void adcInit(drv_adc_config_t *init)
 {
-    for (int i = 0; i < ADC_FUNCTION_COUNT; i++) {
+    for (int i = 0; i < ADC_RUNTIME_FUNCTION_COUNT; i++) {
         adcFunctionMap[i] = (adcChannel_e)init->adcFunctionChannel[i];
     }
 
